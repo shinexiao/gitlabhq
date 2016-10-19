@@ -2,15 +2,10 @@ module Gitlab
   class TaskAbortedByUserError < StandardError; end
 end
 
-unless STDOUT.isatty
-  module Colored
-    extend self
+require 'rainbow/ext/string'
 
-    def colorize(string, options={})
-      string
-    end
-  end
-end
+# Prevent StateMachine warnings from outputting during a cron task
+StateMachines::Machine.ignore_method_conflicts = true if ENV['CRON']
 
 namespace :gitlab do
 
@@ -19,7 +14,7 @@ namespace :gitlab do
   # Returns "yes" the user chose to continue
   # Raises Gitlab::TaskAbortedByUserError if the user chose *not* to continue
   def ask_to_continue
-    answer = prompt("Do you want to continue (yes/no)? ".blue, %w{yes no})
+    answer = prompt("Do you want to continue (yes/no)? ".color(:blue), %w{yes no})
     raise Gitlab::TaskAbortedByUserError unless answer == "yes"
   end
 
@@ -28,7 +23,7 @@ namespace :gitlab do
   # It will primarily use lsb_relase to determine the OS.
   # It has fallbacks to Debian, SuSE, OS X and systems running systemd.
   def os_name
-    os_name = run(%W(lsb_release -irs))
+    os_name = run_command(%W(lsb_release -irs))
     os_name ||= if File.readable?('/etc/system-release')
                   File.read('/etc/system-release')
                 end
@@ -39,7 +34,7 @@ namespace :gitlab do
     os_name ||= if File.readable?('/etc/SuSE-release')
                   File.read('/etc/SuSE-release')
                 end
-    os_name ||= if os_x_version = run(%W(sw_vers -productVersion))
+    os_name ||= if os_x_version = run_command(%W(sw_vers -productVersion))
                   "Mac OS X #{os_x_version}"
                 end
     os_name ||= if File.readable?('/etc/os-release')
@@ -67,10 +62,10 @@ namespace :gitlab do
   # Returns nil if nothing matched
   # Returns the MatchData if the pattern matched
   #
-  # see also #run
+  # see also #run_command
   # see also String#match
   def run_and_match(command, regexp)
-    run(command).try(:match, regexp)
+    run_command(command).try(:match, regexp)
   end
 
   # Runs the given command
@@ -79,7 +74,7 @@ namespace :gitlab do
   # Returns the output of the command otherwise
   #
   # see also #run_and_match
-  def run(command)
+  def run_command(command)
     output, _ = Gitlab::Popen.popen(command)
     output
   rescue Errno::ENOENT
@@ -87,7 +82,7 @@ namespace :gitlab do
   end
 
   def uid_for(user_name)
-    run(%W(id -u #{user_name})).chomp.to_i
+    run_command(%W(id -u #{user_name})).chomp.to_i
   end
 
   def gid_for(group_name)
@@ -101,12 +96,12 @@ namespace :gitlab do
   def warn_user_is_not_gitlab
     unless @warned_user_not_gitlab
       gitlab_user = Gitlab.config.gitlab.user
-      current_user = run(%W(whoami)).chomp
+      current_user = run_command(%W(whoami)).chomp
       unless current_user == gitlab_user
-        puts "#{Colored.color(:black)+Colored.color(:on_yellow)} Warning #{Colored.extra(:clear)}"
-        puts "  You are running as user #{current_user.magenta}, we hope you know what you are doing."
+        puts " Warning ".color(:black).background(:yellow)
+        puts "  You are running as user #{current_user.color(:magenta)}, we hope you know what you are doing."
         puts "  Things may work\/fail for the wrong reasons."
-        puts "  For correct results you should run this as user #{gitlab_user.magenta}."
+        puts "  For correct results you should run this as user #{gitlab_user.color(:magenta)}."
         puts ""
       end
       @warned_user_not_gitlab = true
@@ -118,14 +113,28 @@ namespace :gitlab do
   # Returns true if all subcommands were successfull (according to their exit code)
   # Returns false if any or all subcommands failed.
   def auto_fix_git_config(options)
-    if !@warned_user_not_gitlab && options['user.email'] != 'example@example.com' # default email should be overridden?
+    if !@warned_user_not_gitlab
       command_success = options.map do |name, value|
-        system(%W(#{Gitlab.config.git.bin_path} config --global #{name} #{value}))
+        system(*%W(#{Gitlab.config.git.bin_path} config --global #{name} #{value}))
       end
 
       command_success.all?
     else
       false
     end
+  end
+
+  def all_repos
+    Gitlab.config.repositories.storages.each do |name, path|
+      IO.popen(%W(find #{path} -mindepth 2 -maxdepth 2 -type d -name *.git)) do |find|
+        find.each_line do |path|
+          yield path.chomp
+        end
+      end
+    end
+  end
+
+  def repository_storage_paths_args
+    Gitlab.config.repositories.storages.values
   end
 end

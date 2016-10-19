@@ -1,16 +1,17 @@
 class Admin::GroupsController < Admin::ApplicationController
-  before_filter :group, only: [:edit, :show, :update, :destroy, :project_update, :members_update]
+  before_action :group, only: [:edit, :show, :update, :destroy, :project_update, :members_update]
 
   def index
     @groups = Group.all
     @groups = @groups.sort(@sort = params[:sort])
     @groups = @groups.search(params[:name]) if params[:name].present?
-    @groups = @groups.page(params[:page]).per(PER_PAGE)
+    @groups = @groups.page(params[:page])
   end
 
   def show
-    @members = @group.members.order("access_level DESC").page(params[:members_page]).per(PER_PAGE)
-    @projects = @group.projects.page(params[:projects_page]).per(PER_PAGE)
+    @members = @group.members.order("access_level DESC").page(params[:members_page])
+    @requesters = AccessRequestsFinder.new(@group).execute(current_user)
+    @projects = @group.projects.page(params[:projects_page])
   end
 
   def new
@@ -41,24 +42,32 @@ class Admin::GroupsController < Admin::ApplicationController
   end
 
   def members_update
-    @group.add_users(params[:user_ids].split(','), params[:access_level])
+    @group.add_users(params[:user_ids].split(','), params[:access_level], current_user: current_user)
 
     redirect_to [:admin, @group], notice: 'Users were successfully added.'
   end
 
   def destroy
-    @group.destroy
+    DestroyGroupService.new(@group, current_user).async_execute
 
-    redirect_to admin_groups_path, notice: 'Group was successfully deleted.'
+    redirect_to admin_groups_path, alert: "Group '#{@group.name}' was scheduled for deletion."
   end
 
   private
 
   def group
-    @group = Group.find_by(path: params[:id])
+    @group ||= Group.find_by(path: params[:id])
   end
 
   def group_params
-    params.require(:group).permit(:name, :description, :path, :avatar)
+    params.require(:group).permit(
+      :avatar,
+      :description,
+      :lfs_enabled,
+      :name,
+      :path,
+      :request_access_enabled,
+      :visibility_level
+    )
   end
 end

@@ -1,22 +1,20 @@
-= form_for [@project.namespace.becomes(Namespace), @project, @label], html: { class: 'form-horizontal label-form' } do |f|
-  -if @label.errors.any?
-    .row
-      .col-sm-10.col-sm-offset-2
-        .alert.alert-danger
-          - @label.errors.full_messages.each do |msg|
-            %span= msg
-            %br
+= form_for [@project.namespace.becomes(Namespace), @project, @label], html: { class: 'form-horizontal label-form js-quick-submit js-requires-input' } do |f|
+  = form_errors(@label)
 
   .form-group
     = f.label :title, class: 'control-label'
     .col-sm-10
-      = f.text_field :title, class: "form-control", required: true
+      = f.text_field :title, class: "form-control", required: true, autofocus: true
   .form-group
-    = f.label :color, "Background Color", class: 'control-label'
+    = f.label :description, class: 'control-label'
+    .col-sm-10
+      = f.text_field :description, class: "form-control js-quick-submit"
+  .form-group
+    = f.label :color, "Background color", class: 'control-label'
     .col-sm-10
       .input-group
         .input-group-addon.label-color-preview &nbsp;
-        = f.color_field :color, value: "#AA33EE", class: "form-control"
+        = f.text_field :color, class: "form-control"
       .help-block
         Choose any color.
         %br
@@ -28,6 +26,8 @@
             &nbsp;
 
   .form-actions
-    = f.submit 'Save', class: 'btn btn-save js-save-button'
+    - if @label.persisted?
+      = f.submit 'Save changes', class: 'btn btn-save js-save-button'
+    - else
+      = f.submit 'Create Label', class: 'btn btn-create js-save-button'
     = link_to "Cancel", namespace_project_labels_path(@project.namespace, @project), class: 'btn btn-cancel'
-

@@ -1,6 +1,6 @@
 namespace :gitlab do
   namespace :env do
-    desc "GITLAB | Show information about GitLab and its environment"
+    desc "GitLab | Show information about GitLab and its environment"
     task info: :environment  do
 
       # check if there is an RVM environment
@@ -8,30 +8,29 @@ namespace :gitlab do
       # check Ruby version
       ruby_version = run_and_match(%W(ruby --version), /[\d\.p]+/).try(:to_s)
       # check Gem version
-      gem_version = run(%W(gem --version))
+      gem_version = run_command(%W(gem --version))
       # check Bundler version
       bunder_version = run_and_match(%W(bundle --version), /[\d\.]+/).try(:to_s)
       # check Bundler version
       rake_version = run_and_match(%W(rake --version), /[\d\.]+/).try(:to_s)
 
       puts ""
-      puts "System information".yellow
-      puts "System:\t\t#{os_name || "unknown".red}"
-      puts "Current User:\t#{run(%W(whoami))}"
-      puts "Using RVM:\t#{rvm_version.present? ? "yes".green : "no"}"
+      puts "System information".color(:yellow)
+      puts "System:\t\t#{os_name || "unknown".color(:red)}"
+      puts "Current User:\t#{run_command(%W(whoami))}"
+      puts "Using RVM:\t#{rvm_version.present? ? "yes".color(:green) : "no"}"
       puts "RVM Version:\t#{rvm_version}" if rvm_version.present?
-      puts "Ruby Version:\t#{ruby_version || "unknown".red}"
-      puts "Gem Version:\t#{gem_version || "unknown".red}"
-      puts "Bundler Version:#{bunder_version || "unknown".red}"
-      puts "Rake Version:\t#{rake_version || "unknown".red}"
+      puts "Ruby Version:\t#{ruby_version || "unknown".color(:red)}"
+      puts "Gem Version:\t#{gem_version || "unknown".color(:red)}"
+      puts "Bundler Version:#{bunder_version || "unknown".color(:red)}"
+      puts "Rake Version:\t#{rake_version || "unknown".color(:red)}"
       puts "Sidekiq Version:#{Sidekiq::VERSION}"
 
 
       # check database adapter
       database_adapter = ActiveRecord::Base.connection.adapter_name.downcase
 
-      project = Project.new(path: "some-project")
-      project.path = "some-project"
+      project = Group.new(path: "some-group").projects.build(path: "some-project")
       # construct clone URLs
       http_clone_url = project.http_url_to_repo
       ssh_clone_url  = project.ssh_url_to_repo
@@ -40,7 +39,7 @@ namespace :gitlab do
       omniauth_providers.map! { |provider| provider['name'] }
 
       puts ""
-      puts "GitLab information".yellow
+      puts "GitLab information".color(:yellow)
       puts "Version:\t#{Gitlab::VERSION}"
       puts "Revision:\t#{Gitlab::REVISION}"
       puts "Directory:\t#{Rails.root}"
@@ -48,9 +47,9 @@ namespace :gitlab do
       puts "URL:\t\t#{Gitlab.config.gitlab.url}"
       puts "HTTP Clone URL:\t#{http_clone_url}"
       puts "SSH Clone URL:\t#{ssh_clone_url}"
-      puts "Using LDAP:\t#{Gitlab.config.ldap.enabled ? "yes".green : "no"}"
-      puts "Using Omniauth:\t#{Gitlab.config.omniauth.enabled ? "yes".green : "no"}"
-      puts "Omniauth Providers: #{omniauth_providers.map(&:magenta).join(', ')}" if Gitlab.config.omniauth.enabled
+      puts "Using LDAP:\t#{Gitlab.config.ldap.enabled ? "yes".color(:green) : "no"}"
+      puts "Using Omniauth:\t#{Gitlab.config.omniauth.enabled ? "yes".color(:green) : "no"}"
+      puts "Omniauth Providers: #{omniauth_providers.join(', ')}" if Gitlab.config.omniauth.enabled
 
 
 
@@ -61,9 +60,12 @@ namespace :gitlab do
       end
 
       puts ""
-      puts "GitLab Shell".yellow
-      puts "Version:\t#{gitlab_shell_version || "unknown".red}"
-      puts "Repositories:\t#{Gitlab.config.gitlab_shell.repos_path}"
+      puts "GitLab Shell".color(:yellow)
+      puts "Version:\t#{gitlab_shell_version || "unknown".color(:red)}"
+      puts "Repository storage paths:"
+      Gitlab.config.repositories.storages.each do |name, path|
+        puts "- #{name}: \t#{path}"
+      end
       puts "Hooks:\t\t#{Gitlab.config.gitlab_shell.hooks_path}"
       puts "Git:\t\t#{Gitlab.config.git.bin_path}"
 

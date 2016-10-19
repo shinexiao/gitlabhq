@@ -10,7 +10,7 @@ class SlackService
     attr_reader :title
 
     def initialize(params)
-      @user_name = params[:user][:name]
+      @user_name = params[:user][:username]
       @project_name = params[:project_name]
       @project_url = params[:project_url]
 
@@ -50,7 +50,7 @@ class SlackService
     end
 
     def merge_request_link
-      "[merge request ##{merge_request_id}](#{merge_request_url})"
+      "[merge request !#{merge_request_id}](#{merge_request_url})"
     end
 
     def merge_request_url

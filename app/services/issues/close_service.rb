@@ -1,10 +1,19 @@
 module Issues
   class CloseService < Issues::BaseService
-    def execute(issue, commit = nil)
-      if issue.close
+    def execute(issue, commit: nil, notifications: true, system_note: true)
+      return issue unless can?(current_user, :update_issue, issue)
+
+      if project.jira_tracker? && project.jira_service.active
+        project.jira_service.execute(commit, issue)
+        todo_service.close_issue(issue, current_user)
+        return issue
+      end
+
+      if project.default_issues_tracker? && issue.close
         event_service.close_issue(issue, current_user)
-        create_note(issue, commit)
-        notification_service.close_issue(issue, current_user)
+        create_note(issue, commit) if system_note
+        notification_service.close_issue(issue, current_user) if notifications
+        todo_service.close_issue(issue, current_user)
         execute_hooks(issue, 'close')
       end
 
@@ -14,7 +23,7 @@ module Issues
     private
 
     def create_note(issue, current_commit)
-      Note.create_status_change_note(issue, issue.project, current_user, issue.state, current_commit)
+      SystemNoteService.change_status(issue, issue.project, current_user, issue.state, current_commit)
     end
   end
 end

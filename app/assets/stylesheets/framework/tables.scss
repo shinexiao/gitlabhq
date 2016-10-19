@@ -1,0 +1,43 @@
+.table-holder {
+  margin: 0;
+}
+
+table {
+  &.table {
+    margin-bottom: $gl-padding;
+
+    .dropdown-menu a {
+      text-decoration: none;
+    }
+
+    .success,
+    .warning,
+    .danger,
+    .info {
+      color: #fff;
+
+      a:not(.btn) {
+        text-decoration: underline;
+        color: #fff;
+      }
+    }
+
+    tr {
+      td, th {
+        padding: 10px $gl-padding;
+        line-height: 20px;
+        vertical-align: middle;
+      }
+
+      th {
+        background-color: $background-color;
+        font-weight: normal;
+        border-bottom: none;
+      }
+
+      td {
+        border-color: $table-border-color;
+      }
+    }
+  }
+}

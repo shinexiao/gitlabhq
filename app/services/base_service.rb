@@ -7,12 +7,8 @@ class BaseService
     @project, @current_user, @params = project, user, params.dup
   end
 
-  def abilities
-    Ability.abilities
-  end
-
   def can?(object, action, subject)
-    abilities.allowed?(object, action, subject)
+    Ability.allowed?(object, action, subject)
   end
 
   def notification_service
@@ -23,6 +19,10 @@ class BaseService
     EventCreateService.new
   end
 
+  def todo_service
+    TodoService.new
+  end
+
   def log_info(message)
     Gitlab::AppLogger.info message
   end
@@ -31,19 +31,17 @@ class BaseService
     SystemHooksService.new
   end
 
+  def repository
+    project.repository
+  end
+
   # Add an error to the specified model for restricted visibility levels
   def deny_visibility_level(model, denied_visibility_level = nil)
     denied_visibility_level ||= model.visibility_level
 
-    level_name = 'Unknown'
-    Gitlab::VisibilityLevel.options.each do |name, level|
-      level_name = name if level == denied_visibility_level
-    end
+    level_name = Gitlab::VisibilityLevel.level_name(denied_visibility_level).downcase
 
-    model.errors.add(
-      :visibility_level,
-      "#{level_name} visibility has been restricted by your GitLab administrator"
-    )
+    model.errors.add(:visibility_level, "#{level_name} has been restricted by your GitLab administrator")
   end
 
   private
@@ -58,9 +56,8 @@ class BaseService
     result
   end
 
-  def success
-    {
-      status: :success
-    }
+  def success(pass_back = {})
+    pass_back[:status] = :success
+    pass_back
   end
 end

@@ -1,21 +1,30 @@
 module Gitlab
-  module ClosingIssueExtractor
-    ISSUE_CLOSING_REGEX = Regexp.new(Gitlab.config.gitlab.issue_closing_pattern)
+  class ClosingIssueExtractor
+    ISSUE_CLOSING_REGEX = begin
+      link_pattern = URI.regexp(%w(http https))
 
-    def self.closed_by_message_in_project(message, project)
-      issues = []
+      pattern = Gitlab.config.gitlab.issue_closing_pattern
+      pattern = pattern.sub('%{issue_ref}', "(?:(?:#{link_pattern})|(?:#{Issue.reference_pattern}))")
+      Regexp.new(pattern).freeze
+    end
 
-      unless message.nil?
-        md = message.scan(ISSUE_CLOSING_REGEX)
+    def initialize(project, current_user = nil)
+      @extractor = Gitlab::ReferenceExtractor.new(project, current_user)
+    end
 
-        md.each do |ref|
-          extractor = Gitlab::ReferenceExtractor.new
-          extractor.analyze(ref[0], project)
-          issues += extractor.issues_for(project)
-        end
+    def closed_by_message(message)
+      return [] if message.nil?
+
+      closing_statements = []
+      message.scan(ISSUE_CLOSING_REGEX) do
+        closing_statements << Regexp.last_match[0]
       end
 
-      issues.uniq
+      @extractor.analyze(closing_statements.join(" "))
+
+      @extractor.issues.reject do |issue|
+        @extractor.project.forked_from?(issue.project) # Don't extract issues on original project
+      end
     end
   end
 end

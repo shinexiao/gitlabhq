@@ -11,6 +11,11 @@ Feature: Project Network Graph
     And page should have "master" on graph
 
   @javascript
+  Scenario: I should see project network with 'test' branch
+    When I visit project network page on branch 'test'
+    Then page should have 'test' on graph
+
+  @javascript
   Scenario: I should switch "branch" and "tag"
     When I switch ref to "feature"
     Then page should select "feature" in select box
@@ -29,9 +34,10 @@ Feature: Project Network Graph
   @javascript
   Scenario: I should filter selected tag
     When I switch ref to "v1.0.0"
+    Then page should have "v1.0.0" in title
     Then page should have content not containing "v1.0.0"
     When click "Show only selected branch" checkbox
-    Then page should not have content not containing "v1.0.0"
+    Then page should only have content from "v1.0.0"
     When click "Show only selected branch" checkbox
     Then page should have content not containing "v1.0.0"
 

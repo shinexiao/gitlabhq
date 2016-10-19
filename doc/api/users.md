@@ -20,6 +20,7 @@ GET /users
     "name": "John Smith",
     "state": "active",
     "avatar_url": "http://localhost:3000/uploads/user/avatar/1/cd8.jpeg",
+    "web_url": "http://localhost:3000/john_smith"
   },
   {
     "id": 2,
@@ -27,6 +28,7 @@ GET /users
     "name": "Jack Smith",
     "state": "blocked",
     "avatar_url": "http://gravatar.com/../e32131cd8.jpeg",
+    "web_url": "http://localhost:3000/jack_smith"
   }
 ]
 ```
@@ -45,19 +47,32 @@ GET /users
     "email": "john@example.com",
     "name": "John Smith",
     "state": "active",
+    "avatar_url": "http://localhost:3000/uploads/user/avatar/1/index.jpg",
+    "web_url": "http://localhost:3000/john_smith",
     "created_at": "2012-05-23T08:00:58Z",
+    "is_admin": false,
     "bio": null,
+    "location": null,
     "skype": "",
     "linkedin": "",
     "twitter": "",
     "website_url": "",
-    "extern_uid": "john.smith",
-    "provider": "provider_name",
+    "organization": "",
+    "last_sign_in_at": "2012-06-01T11:41:01Z",
+    "confirmed_at": "2012-05-23T09:05:22Z",
     "theme_id": 1,
     "color_scheme_id": 2,
-    "is_admin": false,
-    "avatar_url": "http://localhost:3000/uploads/user/avatar/1/cd8.jpeg",
-    "can_create_group": true
+    "projects_limit": 100,
+    "current_sign_in_at": "2012-06-02T06:36:55Z",
+    "identities": [
+      {"provider": "github", "extern_uid": "2435223452345"},
+      {"provider": "bitbucket", "extern_uid": "john.smith"},
+      {"provider": "google_oauth2", "extern_uid": "8776128412476123468721346"}
+    ],
+    "can_create_group": true,
+    "can_create_project": true,
+    "two_factor_enabled": true,
+    "external": false
   },
   {
     "id": 2,
@@ -65,28 +80,45 @@ GET /users
     "email": "jack@example.com",
     "name": "Jack Smith",
     "state": "blocked",
+    "avatar_url": "http://localhost:3000/uploads/user/avatar/2/index.jpg",
+    "web_url": "http://localhost:3000/jack_smith",
     "created_at": "2012-05-23T08:01:01Z",
+    "is_admin": false,
     "bio": null,
+    "location": null,
     "skype": "",
     "linkedin": "",
     "twitter": "",
     "website_url": "",
-    "extern_uid": "jack.smith",
-    "provider": "provider_name",
+    "organization": "",
+    "last_sign_in_at": null,
+    "confirmed_at": "2012-05-30T16:53:06.148Z",
     "theme_id": 1,
     "color_scheme_id": 3,
-    "is_admin": false,
-    "avatar_url": "http://localhost:3000/uploads/user/avatar/1/cd8.jpeg",
+    "projects_limit": 100,
+    "current_sign_in_at": "2014-03-19T17:54:13Z",
+    "identities": [],
     "can_create_group": true,
     "can_create_project": true,
-    "projects_limit": 100
+    "two_factor_enabled": true,
+    "external": false
   }
 ]
 ```
 
 You can search for users by email or username with: `/users?search=John`
 
-Also see `def search query` in `app/models/user.rb`.
+In addition, you can lookup users by username:
+
+```
+GET /users?username=:username
+```
+
+For example:
+
+```
+GET /users?username=jack_smith
+```
 
 ## Single user
 
@@ -109,6 +141,16 @@ Parameters:
   "name": "John Smith",
   "state": "active",
   "avatar_url": "http://localhost:3000/uploads/user/avatar/1/cd8.jpeg",
+  "web_url": "http://localhost:3000/john_smith",
+  "created_at": "2012-05-23T08:00:58Z",
+  "is_admin": false,
+  "bio": null,
+  "location": null,
+  "skype": "",
+  "linkedin": "",
+  "twitter": "",
+  "website_url": "",
+  "organization": ""
 }
 ```
 
@@ -129,20 +171,32 @@ Parameters:
   "email": "john@example.com",
   "name": "John Smith",
   "state": "active",
+  "avatar_url": "http://localhost:3000/uploads/user/avatar/1/index.jpg",
+  "web_url": "http://localhost:3000/john_smith",
   "created_at": "2012-05-23T08:00:58Z",
+  "is_admin": false,
   "bio": null,
+  "location": null,
   "skype": "",
   "linkedin": "",
   "twitter": "",
   "website_url": "",
-  "extern_uid": "john.smith",
-  "provider": "provider_name",
+  "organization": "",
+  "last_sign_in_at": "2012-06-01T11:41:01Z",
+  "confirmed_at": "2012-05-23T09:05:22Z",
   "theme_id": 1,
   "color_scheme_id": 2,
-  "is_admin": false,
+  "projects_limit": 100,
+  "current_sign_in_at": "2012-06-02T06:36:55Z",
+  "identities": [
+    {"provider": "github", "extern_uid": "2435223452345"},
+    {"provider": "bitbucket", "extern_uid": "john.smith"},
+    {"provider": "google_oauth2", "extern_uid": "8776128412476123468721346"}
+  ],
   "can_create_group": true,
   "can_create_project": true,
-  "projects_limit": 100
+  "two_factor_enabled": true,
+  "external": false
 }
 ```
 
@@ -164,13 +218,16 @@ Parameters:
 - `linkedin` (optional)         - LinkedIn
 - `twitter` (optional)          - Twitter account
 - `website_url` (optional)      - Website URL
+- `organization` (optional)     - Organization name
 - `projects_limit` (optional)   - Number of projects user can create
 - `extern_uid` (optional)       - External UID
 - `provider` (optional)         - External provider name
 - `bio` (optional)              - User's biography
+- `location` (optional)         - User's location
 - `admin` (optional)            - User is admin - true or false (default)
 - `can_create_group` (optional) - User can create groups - true or false
 - `confirm` (optional)          - Require confirmation - true (default) or false
+- `external` (optional)         - Flags the user as external - true or false(default)
 
 ## User modification
 
@@ -190,12 +247,15 @@ Parameters:
 - `linkedin`                    - LinkedIn
 - `twitter`                     - Twitter account
 - `website_url`                 - Website URL
+- `organization`                - Organization name
 - `projects_limit`              - Limit projects each user can create
 - `extern_uid`                  - External UID
 - `provider`                    - External provider name
 - `bio`                         - User's biography
+- `location` (optional)         - User's location
 - `admin` (optional)            - User is admin - true or false (default)
 - `can_create_group` (optional) - User can create groups - true or false
+- `external` (optional)         - Flags the user as external - true or false(default)
 
 Note, at the moment this method does only return a 404 error,
 even in cases where a 409 (Conflict) would be more appropriate,
@@ -231,20 +291,33 @@ GET /user
   "username": "john_smith",
   "email": "john@example.com",
   "name": "John Smith",
-  "private_token": "dd34asd13as",
   "state": "active",
+  "avatar_url": "http://localhost:3000/uploads/user/avatar/1/index.jpg",
+  "web_url": "http://localhost:3000/john_smith",
   "created_at": "2012-05-23T08:00:58Z",
+  "is_admin": false,
   "bio": null,
+  "location": null,
   "skype": "",
   "linkedin": "",
   "twitter": "",
   "website_url": "",
+  "organization": "",
+  "last_sign_in_at": "2012-06-01T11:41:01Z",
+  "confirmed_at": "2012-05-23T09:05:22Z",
   "theme_id": 1,
   "color_scheme_id": 2,
-  "is_admin": false,
+  "projects_limit": 100,
+  "current_sign_in_at": "2012-06-02T06:36:55Z",
+  "identities": [
+    {"provider": "github", "extern_uid": "2435223452345"},
+    {"provider": "bitbucket", "extern_uid": "john_smith"},
+    {"provider": "google_oauth2", "extern_uid": "8776128412476123468721346"}
+  ],
   "can_create_group": true,
   "can_create_project": true,
-  "projects_limit": 100
+  "two_factor_enabled": true,
+  "external": false
 }
 ```
 
@@ -392,3 +465,311 @@ Parameters:
 - `id` (required)  - SSH key ID
 
 Will return `200 OK` on success, or `404 Not found` if either user or key cannot be found.
+
+## List emails
+
+Get a list of currently authenticated user's emails.
+
+```
+GET /user/emails
+```
+
+```json
+[
+  {
+    "id": 1,
+    "email": "email@example.com"
+  },
+  {
+    "id": 3,
+    "email": "email2@example.com"
+  }
+]
+```
+
+Parameters:
+
+- **none**
+
+## List emails for user
+
+Get a list of a specified user's emails. Available only for admin
+
+```
+GET /users/:uid/emails
+```
+
+Parameters:
+
+- `uid` (required) - id of specified user
+
+## Single email
+
+Get a single email.
+
+```
+GET /user/emails/:id
+```
+
+Parameters:
+
+- `id` (required) - email ID
+
+```json
+{
+  "id": 1,
+  "email": "email@example.com"
+}
+```
+
+## Add email
+
+Creates a new email owned by the currently authenticated user.
+
+```
+POST /user/emails
+```
+
+Parameters:
+
+- `email` (required) - email address
+
+```json
+{
+  "id": 4,
+  "email": "email@example.com"
+}
+```
+
+Will return created email with status `201 Created` on success. If an
+error occurs a `400 Bad Request` is returned with a message explaining the error:
+
+```json
+{
+  "message": {
+    "email": [
+      "has already been taken"
+    ]
+  }
+}
+```
+
+## Add email for user
+
+Create new email owned by specified user. Available only for admin
+
+```
+POST /users/:id/emails
+```
+
+Parameters:
+
+- `id` (required)    - id of specified user
+- `email` (required) - email address
+
+Will return created email with status `201 Created` on success, or `404 Not found` on fail.
+
+## Delete email for current user
+
+Deletes email owned by currently authenticated user.
+This is an idempotent function and calling it on a email that is already deleted
+or not available results in `200 OK`.
+
+```
+DELETE /user/emails/:id
+```
+
+Parameters:
+
+- `id` (required) - email ID
+
+## Delete email for given user
+
+Deletes email owned by a specified user. Available only for admin.
+
+```
+DELETE /users/:uid/emails/:id
+```
+
+Parameters:
+
+- `uid` (required) - id of specified user
+- `id` (required)  - email ID
+
+Will return `200 OK` on success, or `404 Not found` if either user or email cannot be found.
+
+## Block user
+
+Blocks the specified user.  Available only for admin.
+
+```
+PUT /users/:uid/block
+```
+
+Parameters:
+
+- `uid` (required) - id of specified user
+
+Will return `200 OK` on success, `404 User Not Found` is user cannot be found or
+`403 Forbidden` when trying to block an already blocked user by LDAP synchronization.
+
+## Unblock user
+
+Unblocks the specified user.  Available only for admin.
+
+```
+PUT /users/:uid/unblock
+```
+
+Parameters:
+
+- `uid` (required) - id of specified user
+
+Will return `200 OK` on success, `404 User Not Found` is user cannot be found or
+`403 Forbidden` when trying to unblock a user blocked by LDAP synchronization.
+
+### Get user contribution events
+
+Get the contribution events for the specified user, sorted from newest to oldest.
+
+```
+GET /users/:id/events
+```
+
+Parameters:
+
+| Attribute | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `id` | integer | yes | The ID of the user |
+
+```bash
+curl --header "PRIVATE-TOKEN: 9koXpg98eAheJpvBs5tK" https://gitlab.example.com/api/v3/user/:id/events
+```
+
+Example response:
+
+```json
+[
+  {
+    "title": null,
+    "project_id": 15,
+    "action_name": "closed",
+    "target_id": 830,
+    "target_type": "Issue",
+    "author_id": 1,
+    "data": null,
+    "target_title": "Public project search field",
+    "author": {
+      "name": "Dmitriy Zaporozhets",
+      "username": "root",
+      "id": 1,
+      "state": "active",
+      "avatar_url": "http://localhost:3000/uploads/user/avatar/1/fox_avatar.png",
+      "web_url": "http://localhost:3000/root"
+    },
+    "author_username": "root"
+  },
+  {
+    "title": null,
+    "project_id": 15,
+    "action_name": "opened",
+    "target_id": null,
+    "target_type": null,
+    "author_id": 1,
+    "author": {
+      "name": "Dmitriy Zaporozhets",
+      "username": "root",
+      "id": 1,
+      "state": "active",
+      "avatar_url": "http://localhost:3000/uploads/user/avatar/1/fox_avatar.png",
+      "web_url": "http://localhost:3000/root"
+    },
+    "author_username": "john",
+    "data": {
+      "before": "50d4420237a9de7be1304607147aec22e4a14af7",
+      "after": "c5feabde2d8cd023215af4d2ceeb7a64839fc428",
+      "ref": "refs/heads/master",
+      "user_id": 1,
+      "user_name": "Dmitriy Zaporozhets",
+      "repository": {
+        "name": "gitlabhq",
+        "url": "git@dev.gitlab.org:gitlab/gitlabhq.git",
+        "description": "GitLab: self hosted Git management software. \r\nDistributed under the MIT License.",
+        "homepage": "https://dev.gitlab.org/gitlab/gitlabhq"
+      },
+      "commits": [
+        {
+          "id": "c5feabde2d8cd023215af4d2ceeb7a64839fc428",
+          "message": "Add simple search to projects in public area",
+          "timestamp": "2013-05-13T18:18:08+00:00",
+          "url": "https://dev.gitlab.org/gitlab/gitlabhq/commit/c5feabde2d8cd023215af4d2ceeb7a64839fc428",
+          "author": {
+            "name": "Dmitriy Zaporozhets",
+            "email": "dmitriy.zaporozhets@gmail.com"
+          }
+        }
+      ],
+      "total_commits_count": 1
+    },
+    "target_title": null
+  },
+  {
+    "title": null,
+    "project_id": 15,
+    "action_name": "closed",
+    "target_id": 840,
+    "target_type": "Issue",
+    "author_id": 1,
+    "data": null,
+    "target_title": "Finish & merge Code search PR",
+    "author": {
+      "name": "Dmitriy Zaporozhets",
+      "username": "root",
+      "id": 1,
+      "state": "active",
+      "avatar_url": "http://localhost:3000/uploads/user/avatar/1/fox_avatar.png",
+      "web_url": "http://localhost:3000/root"
+    },
+    "author_username": "root"
+  },
+  {
+    "title": null,
+    "project_id": 15,
+    "action_name": "commented on",
+    "target_id": 1312,
+    "target_type": "Note",
+    "author_id": 1,
+    "data": null,
+    "target_title": null,
+    "created_at": "2015-12-04T10:33:58.089Z",
+    "note": {
+      "id": 1312,
+      "body": "What an awesome day!",
+      "attachment": null,
+      "author": {
+        "name": "Dmitriy Zaporozhets",
+        "username": "root",
+        "id": 1,
+        "state": "active",
+        "avatar_url": "http://localhost:3000/uploads/user/avatar/1/fox_avatar.png",
+        "web_url": "http://localhost:3000/root"
+      },
+      "created_at": "2015-12-04T10:33:56.698Z",
+      "system": false,
+      "upvote": false,
+      "downvote": false,
+      "noteable_id": 377,
+      "noteable_type": "Issue"
+    },
+    "author": {
+      "name": "Dmitriy Zaporozhets",
+      "username": "root",
+      "id": 1,
+      "state": "active",
+      "avatar_url": "http://localhost:3000/uploads/user/avatar/1/fox_avatar.png",
+      "web_url": "http://localhost:3000/root"
+    },
+    "author_username": "root"
+  }
+]
+```

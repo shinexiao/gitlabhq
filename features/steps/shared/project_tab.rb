@@ -8,16 +8,8 @@ module SharedProjectTab
     ensure_active_main_tab('Project')
   end
 
-  step 'the active main tab should be Files' do
-    ensure_active_main_tab('Files')
-  end
-
-  step 'the active main tab should be Commits' do
-    ensure_active_main_tab('Commits')
-  end
-
-  step 'the active main tab should be Network' do
-    ensure_active_main_tab('Network')
+  step 'the active main tab should be Repository' do
+    ensure_active_main_tab('Repository')
   end
 
   step 'the active main tab should be Graphs' do
@@ -26,6 +18,10 @@ module SharedProjectTab
 
   step 'the active main tab should be Issues' do
     ensure_active_main_tab('Issues')
+  end
+
+  step 'the active main tab should be Members' do
+    ensure_active_main_tab('Members')
   end
 
   step 'the active main tab should be Merge Requests' do
@@ -41,8 +37,22 @@ module SharedProjectTab
   end
 
   step 'the active main tab should be Settings' do
-    within '.nav-sidebar' do
-      page.should have_content('Back to project')
-    end
+    expect(page).to have_selector('.layout-nav .nav-links > li.active', count: 0)
+  end
+
+  step 'the active main tab should be Activity' do
+    ensure_active_main_tab('Activity')
+  end
+
+  step 'the active sub tab should be Network' do
+    ensure_active_sub_tab('Network')
+  end
+
+  step 'the active sub tab should be Files' do
+    ensure_active_sub_tab('Files')
+  end
+
+  step 'the active sub tab should be Commits' do
+    ensure_active_sub_tab('Commits')
   end
 end

@@ -1,6 +1,6 @@
 require "spec_helper"
 
-describe ProjectWiki do
+describe ProjectWiki, models: true do
   let(:project) { create(:empty_project) }
   let(:repository) { project.repository }
   let(:user) { project.owner }
@@ -13,6 +13,12 @@ describe ProjectWiki do
   describe "#path_with_namespace" do
     it "returns the project path with namespace with the .wiki extension" do
       expect(subject.path_with_namespace).to eq(project.path_with_namespace + ".wiki")
+    end
+  end
+
+  describe '#web_url' do
+    it 'returns the full web URL to the wiki' do
+      expect(subject.web_url).to eq("#{Gitlab.config.gitlab.url}/#{project.path_with_namespace}/wikis/home")
     end
   end
 
@@ -33,6 +39,14 @@ describe ProjectWiki do
       gitlab_url = Gitlab.config.gitlab.url
       repo_http_url = "#{gitlab_url}/#{subject.path_with_namespace}.git"
       expect(subject.http_url_to_repo).to eq(repo_http_url)
+    end
+  end
+
+  describe "#wiki_base_path" do
+    it "returns the wiki base path" do
+      wiki_base_path = "#{Gitlab.config.gitlab.relative_url_root}/#{project.path_with_namespace}/wikis"
+
+      expect(subject.wiki_base_path).to eq(wiki_base_path)
     end
   end
 
@@ -184,6 +198,12 @@ describe ProjectWiki do
       subject.create_page("test page", "some content", :markdown, "commit message")
       expect(subject.pages.first.page.version.message).to eq("commit message")
     end
+
+    it 'updates project activity' do
+      expect(subject).to receive(:update_project_activity)
+
+      subject.create_page('Test Page', 'This is content')
+    end
   end
 
   describe "#update_page" do
@@ -205,6 +225,12 @@ describe ProjectWiki do
     it "sets the correct commit message" do
       expect(@page.version.message).to eq("updated page")
     end
+
+    it 'updates project activity' do
+      expect(subject).to receive(:update_project_activity)
+
+      subject.update_page(@gollum_page, 'Yet more content', :markdown, 'Updated page again')
+    end
   end
 
   describe "#delete_page" do
@@ -217,13 +243,38 @@ describe ProjectWiki do
       subject.delete_page(@page)
       expect(subject.pages.count).to eq(0)
     end
+
+    it 'updates project activity' do
+      expect(subject).to receive(:update_project_activity)
+
+      subject.delete_page(@page)
+    end
+  end
+
+  describe '#create_repo!' do
+    it 'creates a repository' do
+      expect(subject).to receive(:init_repo).
+        with(subject.path_with_namespace).
+        and_return(true)
+
+      expect(subject.repository).to receive(:after_create)
+
+      expect(subject.create_repo!).to be_an_instance_of(Gollum::Wiki)
+    end
+  end
+
+  describe '#hook_attrs' do
+    it 'returns a hash with values' do
+      expect(subject.hook_attrs).to be_a Hash
+      expect(subject.hook_attrs.keys).to contain_exactly(:web_url, :git_ssh_url, :git_http_url, :path_with_namespace, :default_branch)
+    end
   end
 
   private
 
   def create_temp_repo(path)
     FileUtils.mkdir_p path
-    system(*%W(git init --quiet --bare -- #{path}))
+    system(*%W(#{Gitlab.config.git.bin_path} init --quiet --bare -- #{path}))
   end
 
   def remove_temp_repo(path)
@@ -231,7 +282,7 @@ describe ProjectWiki do
   end
 
   def commit_details
-    commit = {name: user.name, email: user.email, message: "test commit"}
+    { name: user.name, email: user.email, message: "test commit" }
   end
 
   def create_page(name, content)

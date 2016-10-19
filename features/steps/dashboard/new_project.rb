@@ -3,25 +3,51 @@ class Spinach::Features::NewProject < Spinach::FeatureSteps
   include SharedPaths
   include SharedProject
 
-  step 'I click "New project" link' do
-    click_link "New project"
+  step 'I click "New Project" link' do
+    page.within('.content') do
+      click_link "New Project"
+    end
   end
 
-  step 'I see "New project" page' do
-    page.should have_content("Project path")
+  step 'I see "New Project" page' do
+    expect(page).to have_content('Project path')
+    expect(page).to have_content('Project name')
+  end
+
+  step 'I see all possible import options' do
+    expect(page).to have_link('GitHub')
+    expect(page).to have_link('Bitbucket')
+    expect(page).to have_link('GitLab.com')
+    expect(page).to have_link('Google Code')
+    expect(page).to have_link('Repo by URL')
+    expect(page).to have_link('GitLab export')
   end
 
   step 'I click on "Import project from GitHub"' do
-    first('.how_to_import_link').click
+    first('.import_github').click
   end
 
-  step 'I see instructions on how to import from GitHub' do
-    github_modal = first('.modal-body')
-    github_modal.should be_visible
-    github_modal.should have_content "To enable importing projects from GitHub"
+  step 'I am redirected to the GitHub import page' do
+    expect(page).to have_content('Import Projects from GitHub')
+    expect(current_path).to eq new_import_github_path
+  end
 
-    all('.modal-body').each do |element|
-      element.should_not be_visible unless element == github_modal
-    end
+  step 'I click on "Repo by URL"' do
+    first('.import_git').click
+  end
+
+  step 'I see instructions on how to import from Git URL' do
+    git_import_instructions = first('.js-toggle-content')
+    expect(git_import_instructions).to be_visible
+    expect(git_import_instructions).to have_content "Git repository URL"
+  end
+
+  step 'I click on "Google Code"' do
+    first('.import_google_code').click
+  end
+
+  step 'I redirected to Google Code import page' do
+    expect(page).to have_content('Import projects from Google Code')
+    expect(current_path).to eq new_import_google_code_path
   end
 end

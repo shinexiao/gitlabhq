@@ -1,0 +1,51 @@
+// This file is based off animate.css 3.5.1, available here:
+// https://github.com/daneden/animate.css/blob/3.5.1/animate.css
+// 
+// animate.css - http://daneden.me/animate
+// Version - 3.5.1
+// Licensed under the MIT license - http://opensource.org/licenses/MIT
+// 
+// Copyright (c) 2016 Daniel Eden
+
+.animated {
+  @include webkit-prefix(animation-duration, 1s);
+  @include webkit-prefix(animation-fill-mode, both);
+
+  &.infinite {
+    @include webkit-prefix(animation-iteration-count, infinite);
+  }
+
+  &.once {
+    @include webkit-prefix(animation-iteration-count, 1);
+  }
+
+  &.hinge {
+    @include webkit-prefix(animation-duration, 2s);
+  }
+
+  &.flipOutX,
+  &.flipOutY,
+  &.bounceIn,
+  &.bounceOut {
+    @include webkit-prefix(animation-duration, .75s);
+  }
+
+  &.short {
+    @include webkit-prefix(animation-duration, 321ms);
+    @include webkit-prefix(animation-fill-mode, none);
+  }
+}
+
+@include keyframes(pulse) {
+  from, to {
+    @include webkit-prefix(transform, scale3d(1, 1, 1));
+  }
+
+  50% {
+    @include webkit-prefix(transform, scale3d(1.05, 1.05, 1.05));
+  }
+}
+
+.pulse {
+  @include webkit-prefix(animation-name, pulse);
+}

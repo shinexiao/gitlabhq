@@ -1,10 +1,10 @@
 Gitlab::Seeder.quiet do
   Project.all.each do |project|
-    (1..5).each  do |i|
+    5.times do |i|
       milestone_params = {
         title: "v#{i}.0",
-        description: Faker::Lorem.sentence,
-        state: ['opened', 'closed'].sample,
+        description: FFaker::Lorem.sentence,
+        state: [:active, :closed].sample,
       }
 
       milestone = Milestones::CreateService.new(

@@ -1,39 +1,25 @@
-%h3.page-title= @milestone.new_record? ? "New Milestone" : "Edit Milestone ##{@milestone.iid}"
-.back-link
-  = link_to namespace_project_milestones_path(@project.namespace, @project) do
-    &larr; To milestones
-
-%hr
-
-= form_for [@project.namespace.becomes(Namespace), @project, @milestone], html: {class: 'form-horizontal milestone-form gfm-form'}  do |f|
-  -if @milestone.errors.any?
-    .alert.alert-danger
-      %ul
-        - @milestone.errors.full_messages.each do |msg|
-          %li= msg
+= form_for [@project.namespace.becomes(Namespace), @project, @milestone], html: {class: 'form-horizontal milestone-form common-note-form js-quick-submit js-requires-input'}  do |f|
+  = form_errors(@milestone)
   .row
     .col-md-6
       .form-group
         = f.label :title, "Title", class: "control-label"
         .col-sm-10
-          = f.text_field :title, maxlength: 255, class: "form-control"
-          %p.hint Required
+          = f.text_field :title, maxlength: 255, class: "form-control", required: true, autofocus: true
       .form-group.milestone-description
         = f.label :description, "Description", class: "control-label"
         .col-sm-10
-          = render layout: 'projects/md_preview', locals: { preview_class: "wiki" } do
-            = render 'projects/zen', f: f, attr: :description, classes: 'description form-control'
-            .hint
-              .pull-left Milestones are parsed with #{link_to "GitLab Flavored Markdown", help_page_path("markdown", "markdown"), target: '_blank'}.
-              .pull-left Attach files by dragging & dropping or #{link_to "selecting them", '#', class: 'markdown-selector' }.
+          = render layout: 'projects/md_preview', locals: { preview_class: "md-preview" } do
+            = render 'projects/zen', f: f, attr: :description, classes: 'note-textarea', placeholder: 'Write milestone description...'
+            = render 'projects/notes/hints'
           .clearfix
           .error-alert
     .col-md-6
       .form-group
         = f.label :due_date, "Due Date", class: "control-label"
-        .col-sm-10= f.hidden_field :due_date
         .col-sm-10
-          .datepicker
+          = f.text_field :due_date, class: "datepicker form-control", placeholder: "Select due date"
+          %a.inline.prepend-top-5.js-clear-due-date{ href: "#" } Clear due date
 
   .form-actions
     - if @milestone.new_record?
@@ -42,13 +28,3 @@
     -else
       = f.submit 'Save changes', class: "btn-save btn"
       = link_to "Cancel", namespace_project_milestone_path(@project.namespace, @project, @milestone), class: "btn btn-cancel"
-
-
-:javascript
-  disableButtonIfEmptyField("#milestone_title", ".btn-save");
-  $( ".datepicker" ).datepicker({
-    dateFormat: "yy-mm-dd",
-    onSelect: function(dateText, inst) { $("#milestone_due_date").val(dateText) }
-  }).datepicker("setDate", $.datepicker.parseDate('yy-mm-dd', $('#milestone_due_date').val()));
-
-  window.project_uploads_path = "#{namespace_project_uploads_path @project.namespace, @project}";

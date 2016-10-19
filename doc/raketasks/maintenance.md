@@ -47,7 +47,6 @@ Git:              /usr/bin/git
 
 Runs the following rake tasks:
 
-- `gitlab:env:check`
 - `gitlab:gitlab_shell:check`
 - `gitlab:sidekiq:check`
 - `gitlab:app:check`
@@ -106,22 +105,9 @@ Log directory writable? ... yes
 Tmp directory writable? ... yes
 Init script exists? ... yes
 Init script up-to-date? ... yes
-Projects have satellites? ... yes
 Redis version >= 2.0.0? ... yes
 
 Checking GitLab ... Finished
-```
-
-## (Re-)Create satellite repositories
-
-This will create satellite repositories for all your projects.
-
-If necessary, remove the `repo_satellites` directory and rerun the commands below.
-
-```
-sudo -u git -H mkdir -p /home/git/gitlab-satellites
-sudo -u git -H bundle exec rake gitlab:satellites:create RAILS_ENV=production
-sudo chmod u+rwx,g=rx,o-rwx /home/git/gitlab-satellites
 ```
 
 ## Rebuild authorized_keys file
@@ -147,7 +133,7 @@ Do you want to continue (yes/no)? yes
 
 ## Clear redis cache
 
-If for some reason the dashboard shows wrong information you might want to 
+If for some reason the dashboard shows wrong information you might want to
 clear Redis' cache.
 
 For Omnibus-packages:
@@ -166,13 +152,37 @@ sudo -u git -H bundle exec rake cache:clear RAILS_ENV=production
 Sometimes during version upgrades you might end up with some wrong CSS or
 missing some icons. In that case, try to precompile the assets again.
 
-For Omnibus-packages:
-```
-sudo gitlab-rake assets:precompile
-```
+Note that this only applies to source installations and does NOT apply to
+omnibus packages.
 
 For installations from source:
 ```
 cd /home/git/gitlab
 sudo -u git -H bundle exec rake assets:precompile RAILS_ENV=production
+```
+
+For omnibus versions, the unoptimized assets (JavaScript, CSS) are frozen at
+the release of upstream GitLab. The omnibus version includes optimized versions
+of those assets. Unless you are modifying the JavaScript / CSS code on your
+production machine after installing the package, there should be no reason to redo
+rake assets:precompile on the production machine. If you suspect that assets
+have been corrupted, you should reinstall the omnibus package.
+
+## Tracking Deployments
+
+GitLab provides a Rake task that lets you track deployments in GitLab
+Performance Monitoring. This Rake task simply stores the current GitLab version
+in the GitLab Performance Monitoring database.
+
+For Omnibus-packages:
+
+```
+sudo gitlab-rake gitlab:track_deployment
+```
+
+For installations from source:
+
+```
+cd /home/git/gitlab
+sudo -u git -H bundle exec rake gitlab:track_deployment RAILS_ENV=production
 ```

@@ -9,20 +9,22 @@ GitHub will generate an application ID and secret key for you to use.
 
 1.  Navigate to your individual user settings or an organization's settings, depending on how you want the application registered. It does not matter if the application is registered as an individual or an organization - that is entirely up to you.
 
-1.  Select "Applications" in the left menu.
+1.  Select "OAuth applications" in the left menu.
+
+1.  If you already have applications listed, switch to the "Developer applications" tab.
 
 1.  Select "Register new application".
 
 1.  Provide the required details.
-    - Application name: This can be anything. Consider something like "\<Organization\>'s GitLab" or "\<Your Name\>'s GitLab" or something else descriptive.
+    - Application name: This can be anything. Consider something like `<Organization>'s GitLab` or `<Your Name>'s GitLab` or something else descriptive.
     - Homepage URL: The URL to your GitLab installation. 'https://gitlab.company.com'
     - Application description: Fill this in if you wish.
-    - Authorization callback URL: 'https://gitlab.company.com/'
+    - Authorization callback URL is 'http(s)://${YOUR_DOMAIN}'
 1.  Select "Register application".
 
 1.  You should now see a Client ID and Client Secret near the top right of the page (see screenshot). 
     Keep this page open as you continue configuration.
-    ![GitHub app](github_app.png)
+    ![GitHub app](img/github_app.png)
 
 1.  On your GitLab server, open the configuration file.
 
@@ -32,7 +34,7 @@ GitHub will generate an application ID and secret key for you to use.
       sudo editor /etc/gitlab/gitlab.rb
     ```
 
-    For instalations from source:
+    For installations from source:
 
     ```sh
       cd /home/git/gitlab
@@ -60,11 +62,25 @@ GitHub will generate an application ID and secret key for you to use.
 
     For installation from source:
 
+    For GitHub.com:
+
     ```
       - { name: 'github', app_id: 'YOUR_APP_ID',
         app_secret: 'YOUR_APP_SECRET',
         args: { scope: 'user:email' } }
     ```
+
+
+    For GitHub Enterprise:
+
+    ```
+      - { name: 'github', app_id: 'YOUR_APP_ID',
+        app_secret: 'YOUR_APP_SECRET',
+        url: "https://github.example.com/",
+        args: { scope: 'user:email' } }
+    ```
+
+    __Replace `https://github.example.com/` with your GitHub URL.__
 
 1.  Change 'YOUR_APP_ID' to the client ID from the GitHub application page from step 7.
 

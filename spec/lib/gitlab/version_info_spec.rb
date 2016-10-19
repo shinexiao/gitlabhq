@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-describe 'Gitlab::VersionInfo', no_db: true do
+describe 'Gitlab::VersionInfo', lib: true, no_db: true do
   before do
     @unknown = Gitlab::VersionInfo.new
     @v0_0_1 = Gitlab::VersionInfo.new(0, 0, 1)
@@ -66,4 +66,3 @@ describe 'Gitlab::VersionInfo', no_db: true do
     it { expect(@unknown.to_s).to eq("Unknown") }
   end
 end
-

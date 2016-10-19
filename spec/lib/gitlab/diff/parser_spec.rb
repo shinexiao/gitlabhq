@@ -1,14 +1,14 @@
 require 'spec_helper'
 
-describe Gitlab::Diff::Parser do
+describe Gitlab::Diff::Parser, lib: true do
   include RepoHelpers
 
   let(:project) { create(:project) }
-  let(:commit) { project.repository.commit(sample_commit.id) }
-  let(:diff) { commit.diffs.first }
+  let(:commit) { project.commit(sample_commit.id) }
+  let(:diff) { commit.raw_diffs.first }
   let(:parser) { Gitlab::Diff::Parser.new }
 
-  describe :parse do
+  describe '#parse' do
     let(:diff) do
       <<eos
 --- a/files/ruby/popen.rb
@@ -47,7 +47,7 @@ eos
     end
 
     before do
-      @lines = parser.parse(diff.lines)
+      @lines = parser.parse(diff.lines).to_a
     end
 
     it { expect(@lines.size).to eq(30) }
@@ -86,8 +86,13 @@ eos
         it { expect(line.type).to eq(nil) }
         it { expect(line.old_pos).to eq(24) }
         it { expect(line.new_pos).to eq(31) }
-        it { expect(line.text).to eq('       @cmd_output &lt;&lt; stderr.read') }
+        it { expect(line.text).to eq('       @cmd_output << stderr.read') }
       end
     end
+  end
+
+  context 'when lines is empty' do
+    it { expect(parser.parse([])).to eq([]) }
+    it { expect(parser.parse(nil)).to eq([]) }
   end
 end

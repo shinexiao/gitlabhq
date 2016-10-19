@@ -6,32 +6,64 @@
 #
 module Issuable
   extend ActiveSupport::Concern
+  include CacheMarkdownField
+  include Participable
   include Mentionable
+  include Subscribable
+  include StripAttribute
+  include Awardable
 
   included do
+    cache_markdown_field :title, pipeline: :single_line
+    cache_markdown_field :description
+
     belongs_to :author, class_name: "User"
     belongs_to :assignee, class_name: "User"
+    belongs_to :updated_by, class_name: "User"
     belongs_to :milestone
-    has_many :notes, as: :noteable, dependent: :destroy
+    has_many :notes, as: :noteable, inverse_of: :noteable, dependent: :destroy do
+      def authors_loaded?
+        # We check first if we're loaded to not load unnecessarily.
+        loaded? && to_a.all? { |note| note.association(:author).loaded? }
+      end
+
+      def award_emojis_loaded?
+        # We check first if we're loaded to not load unnecessarily.
+        loaded? && to_a.all? { |note| note.association(:award_emoji).loaded? }
+      end
+    end
+
     has_many :label_links, as: :target, dependent: :destroy
     has_many :labels, through: :label_links
-    has_many :subscriptions, dependent: :destroy, as: :subscribable
+    has_many :todos, as: :target, dependent: :destroy
+
+    has_one :metrics
 
     validates :author, presence: true
     validates :title, presence: true, length: { within: 0..255 }
 
     scope :authored, ->(user) { where(author_id: user) }
     scope :assigned_to, ->(u) { where(assignee_id: u.id)}
-    scope :recent, -> { order("created_at DESC") }
+    scope :recent, -> { reorder(id: :desc) }
     scope :assigned, -> { where("assignee_id IS NOT NULL") }
     scope :unassigned, -> { where("assignee_id IS NULL") }
     scope :of_projects, ->(ids) { where(project_id: ids) }
+    scope :of_milestones, ->(ids) { where(milestone_id: ids) }
+    scope :with_milestone, ->(title) { left_joins_milestones.where(milestones: { title: title }) }
     scope :opened, -> { with_state(:opened, :reopened) }
     scope :only_opened, -> { with_state(:opened) }
     scope :only_reopened, -> { with_state(:reopened) }
     scope :closed, -> { with_state(:closed) }
-    scope :order_milestone_due_desc, -> { joins(:milestone).reorder('milestones.due_date DESC, milestones.id DESC') }
-    scope :order_milestone_due_asc, -> { joins(:milestone).reorder('milestones.due_date ASC, milestones.id ASC') }
+
+    scope :left_joins_milestones,    -> { joins("LEFT OUTER JOIN milestones ON #{table_name}.milestone_id = milestones.id") }
+    scope :order_milestone_due_desc, -> { left_joins_milestones.reorder('milestones.due_date IS NULL, milestones.id IS NULL, milestones.due_date DESC') }
+    scope :order_milestone_due_asc,  -> { left_joins_milestones.reorder('milestones.due_date IS NULL, milestones.id IS NULL, milestones.due_date ASC') }
+
+    scope :without_label, -> { joins("LEFT OUTER JOIN label_links ON label_links.target_type = '#{name}' AND label_links.target_id = #{table_name}.id").where(label_links: { id: nil }) }
+    scope :join_project, -> { joins(:project) }
+    scope :inc_notes_with_associations, -> { includes(notes: [ :project, :author, :award_emoji ]) }
+    scope :references_project, -> { references(:project) }
+    scope :non_archived, -> { join_project.where(projects: { archived: false }) }
 
     delegate :name,
              :email,
@@ -44,25 +76,105 @@ module Issuable
              allow_nil: true,
              prefix: true
 
-    attr_mentionable :title, :description
+    attr_mentionable :title, pipeline: :single_line
+    attr_mentionable :description
+
+    participant :author
+    participant :assignee
+    participant :notes_with_associations
+
+    strip_attributes :title
+
+    acts_as_paranoid
+
+    after_save :update_assignee_cache_counts, if: :assignee_id_changed?
+    after_save :record_metrics
+
+    def update_assignee_cache_counts
+      # make sure we flush the cache for both the old *and* new assignee
+      User.find(assignee_id_was).update_cache_counts if assignee_id_was
+      assignee.update_cache_counts if assignee
+    end
+
+    # We want to use optimistic lock for cases when only title or description are involved
+    # http://api.rubyonrails.org/classes/ActiveRecord/Locking/Optimistic.html
+    def locking_enabled?
+      title_changed? || description_changed?
+    end
   end
 
   module ClassMethods
+    # Searches for records with a matching title.
+    #
+    # This method uses ILIKE on PostgreSQL and LIKE on MySQL.
+    #
+    # query - The search query as a String
+    #
+    # Returns an ActiveRecord::Relation.
     def search(query)
-      where("LOWER(title) like :query", query: "%#{query.downcase}%")
+      where(arel_table[:title].matches("%#{query}%"))
     end
 
+    # Searches for records with a matching title or description.
+    #
+    # This method uses ILIKE on PostgreSQL and LIKE on MySQL.
+    #
+    # query - The search query as a String
+    #
+    # Returns an ActiveRecord::Relation.
     def full_search(query)
-      where("LOWER(title) like :query OR LOWER(description) like :query", query: "%#{query.downcase}%")
+      t = arel_table
+      pattern = "%#{query}%"
+
+      where(t[:title].matches(pattern).or(t[:description].matches(pattern)))
     end
 
-    def sort(method)
-      case method.to_s
-      when 'milestone_due_asc' then order_milestone_due_asc
-      when 'milestone_due_desc' then order_milestone_due_desc
+    def sort(method, excluded_labels: [])
+      sorted = case method.to_s
+               when 'milestone_due_asc' then order_milestone_due_asc
+               when 'milestone_due_desc' then order_milestone_due_desc
+               when 'downvotes_desc' then order_downvotes_desc
+               when 'upvotes_desc' then order_upvotes_desc
+               when 'priority' then order_labels_priority(excluded_labels: excluded_labels)
+               else
+                 order_by(method)
+               end
+
+      # Break ties with the ID column for pagination
+      sorted.order(id: :desc)
+    end
+
+    def order_labels_priority(excluded_labels: [])
+      condition_field = "#{table_name}.id"
+      highest_priority = highest_label_priority(name, condition_field, excluded_labels: excluded_labels).to_sql
+
+      select("#{table_name}.*, (#{highest_priority}) AS highest_priority").
+        group(arel_table[:id]).
+        reorder(Gitlab::Database.nulls_last_order('highest_priority', 'ASC'))
+    end
+
+    def with_label(title, sort = nil)
+      if title.is_a?(Array) && title.size > 1
+        joins(:labels).where(labels: { title: title }).group(*grouping_columns(sort)).having("COUNT(DISTINCT labels.title) = #{title.size}")
       else
-        order_by(method)
+        joins(:labels).where(labels: { title: title })
       end
+    end
+
+    # Includes table keys in group by clause when sorting
+    # preventing errors in postgres
+    #
+    # Returns an array of arel columns
+    def grouping_columns(sort)
+      grouping_columns = [arel_table[:id]]
+
+      if ["milestone_due_desc", "milestone_due_asc"].include?(sort)
+        milestone_table = Milestone.arel_table
+        grouping_columns << milestone_table[:id]
+        grouping_columns << milestone_table[:due_date]
+      end
+
+      grouping_columns
     end
   end
 
@@ -74,87 +186,44 @@ module Issuable
     today? && created_at == updated_at
   end
 
-  def is_assigned?
-    !!assignee_id
-  end
-
   def is_being_reassigned?
     assignee_id_changed?
   end
 
-  #
-  # Votes
-  #
-
-  # Return the number of -1 comments (downvotes)
-  def downvotes
-    filter_superceded_votes(notes.select(&:downvote?), notes).size
+  def open?
+    opened? || reopened?
   end
 
-  def downvotes_in_percent
-    if votes_count.zero?
-      0
+  def user_notes_count
+    if notes.loaded?
+      # Use the in-memory association to select and count to avoid hitting the db
+      notes.to_a.count { |note| !note.system? }
     else
-      100.0 - upvotes_in_percent
+      # do the count query
+      notes.user.count
     end
   end
 
-  # Return the number of +1 comments (upvotes)
-  def upvotes
-    filter_superceded_votes(notes.select(&:upvote?), notes).size
-  end
-
-  def upvotes_in_percent
-    if votes_count.zero?
-      0
-    else
-      100.0 / votes_count * upvotes
-    end
-  end
-
-  # Return the total number of votes
-  def votes_count
-    upvotes + downvotes
-  end
-
-  # Return all users participating on the discussion
-  def participants
-    users = []
-    users << author
-    users << assignee if is_assigned?
-    mentions = []
-    mentions << self.mentioned_users
-
-    notes.each do |note|
-      users << note.author
-      mentions << note.mentioned_users
-    end
-
-    users.concat(mentions.reduce([], :|)).uniq
-  end
-
-  def subscribed?(user)
-    subscription = subscriptions.find_by_user_id(user.id)
-
-    if subscription
-      return subscription.subscribed
-    end
-
-    participants.include?(user)
-  end
-
-  def toggle_subscription(user)
-    subscriptions.
-      find_or_initialize_by(user_id: user.id).
-      update(subscribed: !subscribed?(user))
+  def subscribed_without_subscriptions?(user)
+    participants(user).include?(user)
   end
 
   def to_hook_data(user)
-    {
+    hook_data = {
       object_kind: self.class.name.underscore,
       user: user.hook_attrs,
-      object_attributes: hook_attrs
+      project: project.hook_attrs,
+      object_attributes: hook_attrs,
+      # DEPRECATED
+      repository: project.hook_attrs.slice(:name, :url, :description, :homepage)
     }
+    hook_data.merge!(assignee: assignee.hook_attrs) if assignee
+
+    hook_data
+  end
+
+  def labels_array
+    labels.to_a
   end
 
   def label_names
@@ -173,17 +242,57 @@ module Issuable
     end
   end
 
-  private
+  # Convert this Issuable class name to a format usable by Ability definitions
+  #
+  # Examples:
+  #
+  #   issuable.class           # => MergeRequest
+  #   issuable.to_ability_name # => "merge_request"
+  def to_ability_name
+    self.class.to_s.underscore
+  end
 
-  def filter_superceded_votes(votes, notes)
-    filteredvotes = [] + votes
+  # Returns a Hash of attributes to be used for Twitter card metadata
+  def card_attributes
+    {
+      'Author'   => author.try(:name),
+      'Assignee' => assignee.try(:name)
+    }
+  end
 
-    votes.each do |vote|
-      if vote.superceded?(notes)
-        filteredvotes.delete(vote)
-      end
+  def notes_with_associations
+    # If A has_many Bs, and B has_many Cs, and you do
+    # `A.includes(b: :c).each { |a| a.b.includes(:c) }`, sadly ActiveRecord
+    # will do the inclusion again. So, we check if all notes in the relation
+    # already have their authors loaded (possibly because the scope
+    # `inc_notes_with_associations` was used) and skip the inclusion if that's
+    # the case.
+    includes = []
+    includes << :author unless notes.authors_loaded?
+    includes << :award_emoji unless notes.award_emojis_loaded?
+    if includes.any?
+      notes.includes(includes)
+    else
+      notes
     end
+  end
 
-    filteredvotes
+  def updated_tasks
+    Taskable.get_updated_tasks(old_content: previous_changes['description'].first,
+                               new_content: description)
+  end
+
+  ##
+  # Method that checks if issuable can be moved to another project.
+  #
+  # Should be overridden if issuable can be moved.
+  #
+  def can_move?(*)
+    false
+  end
+
+  def record_metrics
+    metrics = self.metrics || create_metrics
+    metrics.record!
   end
 end

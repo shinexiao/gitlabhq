@@ -1,6 +1,6 @@
 class UploadsController < ApplicationController
-  skip_before_filter :authenticate_user!
-  before_filter :find_model, :authorize_access!
+  skip_before_action :authenticate_user!
+  before_action :find_model, :authorize_access!
 
   def show
     uploader = @model.send(upload_mount)
@@ -10,7 +10,7 @@ class UploadsController < ApplicationController
     end
 
     unless uploader.file && uploader.file.exists?
-      return not_found!
+      return render_404
     end
 
     disposition = uploader.image? ? 'inline' : 'attachment'
@@ -21,14 +21,14 @@ class UploadsController < ApplicationController
 
   def find_model
     unless upload_model && upload_mount
-      return not_found!
+      return render_404
     end
 
     @model = upload_model.find(params[:id])
   end
 
   def authorize_access!
-    authorized = 
+    authorized =
       case @model
       when Project
         can?(current_user, :read_project, @model)
@@ -44,7 +44,7 @@ class UploadsController < ApplicationController
     return if authorized
 
     if current_user
-      not_found!
+      render_404
     else
       authenticate_user!
     end
@@ -52,17 +52,18 @@ class UploadsController < ApplicationController
 
   def upload_model
     upload_models = {
-      user: User,
-      project: Project,
-      note: Note,
-      group: Group
+      "user"    => User,
+      "project" => Project,
+      "note"    => Note,
+      "group"   => Group,
+      "appearance" => Appearance
     }
 
-    upload_models[params[:model].to_sym]
+    upload_models[params[:model]]
   end
 
   def upload_mount
-    upload_mounts = %w(avatar attachment file)
+    upload_mounts = %w(avatar attachment file logo header_logo)
 
     if upload_mounts.include?(params[:mounted_as])
       params[:mounted_as]

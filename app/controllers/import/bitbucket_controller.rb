@@ -1,27 +1,28 @@
 class Import::BitbucketController < Import::BaseController
-  before_filter :verify_bitbucket_import_enabled
-  before_filter :bitbucket_auth, except: :callback
+  before_action :verify_bitbucket_import_enabled
+  before_action :bitbucket_auth, except: :callback
 
   rescue_from OAuth::Error, with: :bitbucket_unauthorized
+  rescue_from Gitlab::BitbucketImport::Client::Unauthorized, with: :bitbucket_unauthorized
 
   def callback
-    request_token = session.delete(:oauth_request_token) 
+    request_token = session.delete(:oauth_request_token)
     raise "Session expired!" if request_token.nil?
 
     request_token.symbolize_keys!
-    
+
     access_token = client.get_token(request_token, params[:oauth_verifier], callback_import_bitbucket_url)
 
-    current_user.bitbucket_access_token = access_token.token
-    current_user.bitbucket_access_token_secret = access_token.secret
+    session[:bitbucket_access_token] = access_token.token
+    session[:bitbucket_access_token_secret] = access_token.secret
 
-    current_user.save
     redirect_to status_import_bitbucket_url
   end
 
   def status
     @repos = client.projects
-    
+    @incompatible_repos = client.incompatible_projects
+
     @already_added_projects = current_user.created_projects.where(import_type: "bitbucket")
     already_added_projects_names = @already_added_projects.pluck(:import_source)
 
@@ -34,34 +35,35 @@ class Import::BitbucketController < Import::BaseController
   end
 
   def create
-    @repo_id = params[:repo_id] || ""
-    repo = client.project(@repo_id.gsub("___", "/"))
-    @target_namespace = params[:new_namespace].presence || repo["owner"]
-    @project_name = repo["slug"]
-    
-    namespace = get_or_create_namespace || (render and return)
+    @repo_id = params[:repo_id].to_s
+    repo = client.project(@repo_id.gsub('___', '/'))
+    @project_name = repo['slug']
+    @target_namespace = find_or_create_namespace(repo['owner'], client.user['user']['username'])
 
-    unless Gitlab::BitbucketImport::KeyAdder.new(repo, current_user).execute
-      @access_denied = true
-      render
-      return
+    unless Gitlab::BitbucketImport::KeyAdder.new(repo, current_user, access_params).execute
+      render 'deploy_key' and return
     end
 
-    @project = Gitlab::BitbucketImport::ProjectCreator.new(repo, namespace, current_user).execute
+    if current_user.can?(:create_projects, @target_namespace)
+      @project = Gitlab::BitbucketImport::ProjectCreator.new(repo, @target_namespace, current_user, access_params).execute
+    else
+      render 'unauthorized'
+    end
   end
 
   private
 
   def client
-    @client ||= Gitlab::BitbucketImport::Client.new(current_user.bitbucket_access_token, current_user.bitbucket_access_token_secret)
+    @client ||= Gitlab::BitbucketImport::Client.new(session[:bitbucket_access_token],
+                                                    session[:bitbucket_access_token_secret])
   end
 
   def verify_bitbucket_import_enabled
-    not_found! unless bitbucket_import_enabled?
+    render_404 unless bitbucket_import_enabled?
   end
 
   def bitbucket_auth
-    if current_user.bitbucket_access_token.blank?
+    if session[:bitbucket_access_token].blank?
       go_to_bitbucket_for_permissions
     end
   end
@@ -75,5 +77,12 @@ class Import::BitbucketController < Import::BaseController
 
   def bitbucket_unauthorized
     go_to_bitbucket_for_permissions
+  end
+
+  def access_params
+    {
+      bitbucket_access_token: session[:bitbucket_access_token],
+      bitbucket_access_token_secret: session[:bitbucket_access_token_secret]
+    }
   end
 end

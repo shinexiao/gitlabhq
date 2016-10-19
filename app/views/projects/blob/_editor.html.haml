@@ -1,23 +1,38 @@
-.file-holder.file
-  .file-title
+.file-holder.file.append-bottom-default
+  .file-title.clearfix
     .editor-ref
-      %i.fa.fa-code-fork
+      = icon('code-fork')
       = ref
     %span.editor-file-name
-      - if @path
-        %span.monospace
-          = @path
+      - if current_action?(:edit) || current_action?(:update)
+        = text_field_tag 'file_path', (params[:file_path] || @path),
+                                      class: 'form-control new-file-path'
 
-      - if current_action?(:new) || current_action?(:create)
+    - if current_action?(:new) || current_action?(:create)
+      %span.editor-file-name
         \/
-        = text_field_tag 'file_name', params[:file_name], placeholder: "File name",
-          required: true, class: 'form-control new-file-name'
-        .pull-right
-          = select_tag :encoding, options_for_select([ "base64", "text" ], "text"), class: 'form-control'
+      = text_field_tag 'file_name', params[:file_name], placeholder: "File name",
+        required: true, class: 'form-control new-file-name'
 
-  .file-content.code
-    %pre.js-edit-mode-pane#editor
-      = params[:content] || local_assigns[:blob_data]
+    .pull-right
+      .license-selector.js-license-selector-wrap.hidden
+        = dropdown_tag("Choose a License template", options: { toggle_class: 'js-license-selector', title: "Choose a license", filter: true, placeholder: "Filter", data: { data: licenses_for_select, project: @project.name, fullname: @project.namespace.human_name } } )
+      .gitignore-selector.js-gitignore-selector-wrap.hidden
+        = dropdown_tag("Choose a .gitignore template", options: { toggle_class: 'js-gitignore-selector', title: "Choose a template", filter: true, placeholder: "Filter", data: { data: gitignore_names } } )
+      .gitlab-ci-yml-selector.js-gitlab-ci-yml-selector-wrap.hidden
+        = dropdown_tag("Choose a GitLab CI Yaml template", options: { toggle_class: 'js-gitlab-ci-yml-selector', title: "Choose a template", filter: true, placeholder: "Filter", data: { data: gitlab_ci_ymls } } )
+      = button_tag class: 'soft-wrap-toggle btn', type: 'button' do
+        %span.no-wrap
+          = custom_icon('icon_no_wrap')
+          No wrap
+        %span.soft-wrap
+          = custom_icon('icon_soft_wrap')
+          Soft wrap
+      .encoding-selector
+        = select_tag :encoding, options_for_select([ "base64", "text" ], "text"), class: 'select2'
+
+  .file-editor.code
+    %pre.js-edit-mode-pane#editor #{params[:content] || local_assigns[:blob_data]}
     - if local_assigns[:path]
       .js-edit-mode-pane#preview.hide
         .center

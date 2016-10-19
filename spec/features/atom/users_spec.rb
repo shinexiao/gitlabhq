@@ -5,7 +5,7 @@ describe "User Feed", feature: true  do
     let!(:user) { create(:user) }
 
     context 'user atom feed via private token' do
-      it "should render user atom feed" do
+      it "renders user atom feed" do
         visit user_path(user, :atom, private_token: user.private_token)
         expect(body).to have_selector('feed title')
       end
@@ -14,17 +14,24 @@ describe "User Feed", feature: true  do
     context 'feed content' do
       let(:project) { create(:project) }
       let(:issue) do
-        create(:issue, project: project,
-               author: user, description: "Houston, we have a bug!\n\n***\n\nI guess.")
+        create(:issue,
+               project: project,
+               author: user,
+               description: "Houston, we have a bug!\n\n***\n\nI guess.")
       end
       let(:note) do
-        create(:note, noteable: issue, author: user,
-               note: 'Bug confirmed :+1:', project: project)
+        create(:note,
+               noteable: issue,
+               author: user,
+               note: 'Bug confirmed :+1:',
+               project: project)
       end
       let(:merge_request) do
         create(:merge_request,
-               title: 'Fix bug', author: user,
-               source_project: project, target_project: project,
+               title: 'Fix bug',
+               author: user,
+               source_project: project,
+               target_project: project,
                description: "Here is the fix: ![an image](image.png)")
       end
 
@@ -36,25 +43,25 @@ describe "User Feed", feature: true  do
         visit user_path(user, :atom, private_token: user.private_token)
       end
 
-      it 'should have issue opened event' do
+      it 'has issue opened event' do
         expect(body).to have_content("#{safe_name} opened issue ##{issue.iid}")
       end
 
-      it 'should have issue comment event' do
+      it 'has issue comment event' do
         expect(body).
           to have_content("#{safe_name} commented on issue ##{issue.iid}")
       end
 
-      it 'should have XHTML summaries in issue descriptions' do
-        expect(body).to match /we have a bug!<\/p>\n\n<hr ?\/>\n\n<p>I guess/
+      it 'has XHTML summaries in issue descriptions' do
+        expect(body).to match /we have a bug!<\/p>\n\n<hr ?\/>\n\n<p dir="auto">I guess/
       end
 
-      it 'should have XHTML summaries in notes' do
+      it 'has XHTML summaries in notes' do
         expect(body).to match /Bug confirmed <img[^>]*\/>/
       end
 
-      it 'should have XHTML summaries in merge request descriptions' do
-        expect(body).to match /Here is the fix: <img[^>]*\/>/
+      it 'has XHTML summaries in merge request descriptions' do
+        expect(body).to match /Here is the fix: <\/p><div[^>]*><a[^>]*><img[^>]*\/><\/a><\/div>/
       end
     end
   end

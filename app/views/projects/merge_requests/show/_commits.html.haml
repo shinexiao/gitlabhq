@@ -1,1 +1,6 @@
-= render "projects/commits/commits", project: @merge_request.source_project
+.content-block.oneline-block
+  = icon("sort-amount-desc")
+  Most recent commits displayed first
+
+%ol#commits-list.list-unstyled
+  = render "projects/commits/commits", project: @merge_request.project

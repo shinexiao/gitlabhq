@@ -1,44 +1,26 @@
 - empty_repo = @project.empty_repo?
-.project-home-panel{:class => ("empty-project" if empty_repo)}
-  .project-identicon-holder
-    = project_icon(@project, alt: '', class: 'avatar project-avatar')
-  .project-home-row
+.project-home-panel.text-center{ class: ("empty-project" if empty_repo) }
+  %div{ class: container_class }
+    = project_icon(@project, alt: @project.name, class: 'project-avatar avatar s70 avatar-tile')
+    %h1.project-title
+      = @project.name
+      %span.visibility-icon.has-tooltip{data: { container: 'body' }, title: visibility_icon_description(@project)}
+        = visibility_level_icon(@project.visibility_level, fw: false)
+
     .project-home-desc
       - if @project.description.present?
-        = escaped_autolink(@project.description)
-      - if can?(current_user, :admin_project, @project)
-        &ndash;
-        = link_to 'Edit', edit_namespace_project_path
-      - elsif !@project.empty_repo? && @repository.readme
-        - readme = @repository.readme
-        &ndash;
-        = link_to namespace_project_blob_path(@project.namespace, @project, tree_join(@repository.root_ref, readme.name)) do
-          = readme.name
-    .star-fork-buttons
-      - unless @project.empty_repo?
-        .fork-buttons
-          - if current_user && can?(current_user, :fork_project, @project) && @project.namespace != current_user.namespace
-            - if current_user.already_forked?(@project) && current_user.manageable_namespaces.size < 2
-              = link_to namespace_project_path(current_user, current_user.fork_of(@project)), title: 'Go to your fork' do
-                = link_to_toggle_fork
-            - else
-              = link_to new_namespace_project_fork_path(@project.namespace, @project), title: "Fork project" do
-                = link_to_toggle_fork
+        = markdown_field(@project, :description)
 
-      .star-buttons
-        %span.star.js-toggler-container{class: @show_star ? 'on' : ''}
-          - if current_user
-            = link_to_toggle_star('Star this project.', false, true)
-            = link_to_toggle_star('Unstar this project.', true, true)
-          - else
-            = link_to_toggle_star('You must sign in to star a project.', false, false)
+      - if forked_from_project = @project.forked_from_project
+        %p
+          Forked from
+          = link_to project_path(forked_from_project) do
+            = forked_from_project.namespace.try(:name)
 
-  .project-home-row.hidden-xs
-    - if current_user && !empty_repo
-      .project-home-dropdown
-        = render "dropdown"
-    - unless @project.empty_repo?
-      - if can? current_user, :download_code, @project
-        .pull-right.prepend-left-10
-          = render 'projects/repositories/download_archive', split_button: true
-    = render "shared/clone_panel"
+    .project-repo-buttons.project-action-buttons
+      .count-buttons
+        = render 'projects/buttons/star'
+        = render 'projects/buttons/fork'
+
+      .project-clone-holder
+        = render "shared/clone_panel"

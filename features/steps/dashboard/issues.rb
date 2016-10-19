@@ -1,6 +1,7 @@
 class Spinach::Features::DashboardIssues < Spinach::FeatureSteps
   include SharedAuthentication
   include SharedPaths
+  include Select2Helper
 
   step 'I should see issues assigned to me' do
     should_see(assigned_issue)
@@ -35,29 +36,29 @@ class Spinach::Features::DashboardIssues < Spinach::FeatureSteps
   end
 
   step 'I click "Authored by me" link' do
-    within ".assignee-filter" do
-      click_link "Any"
-    end
-    within ".author-filter" do
-      click_link current_user.name
-    end
+    find("#assignee_id").set("")
+    find(".js-author-search", match: :first).click
+    find(".dropdown-menu-author li a", match: :first, text: current_user.to_reference).click
   end
 
   step 'I click "All" link' do
-    within ".author-filter" do
-      click_link "Any"
-    end
-    within ".assignee-filter" do
-      click_link "Any"
-    end
+    find(".js-author-search").click
+    expect(page).to have_selector(".dropdown-menu-author li a")
+    find(".dropdown-menu-author li a", match: :first).click
+    expect(page).not_to have_selector(".dropdown-menu-author li a")
+
+    find(".js-assignee-search").click
+    expect(page).to have_selector(".dropdown-menu-assignee li a")
+    find(".dropdown-menu-assignee li a", match: :first).click
+    expect(page).not_to have_selector(".dropdown-menu-assignee li a")
   end
 
   def should_see(issue)
-    page.should have_content(issue.title[0..10])
+    expect(page).to have_content(issue.title[0..10])
   end
 
   def should_not_see(issue)
-    page.should_not have_content(issue.title[0..10])
+    expect(page).not_to have_content(issue.title[0..10])
   end
 
   def assigned_issue
@@ -78,7 +79,7 @@ class Spinach::Features::DashboardIssues < Spinach::FeatureSteps
 
   def project
     @project ||= begin
-                   project =create :project
+                   project = create :project
                    project.team << [current_user, :master]
                    project
                  end

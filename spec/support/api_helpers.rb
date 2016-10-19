@@ -24,11 +24,28 @@ module ApiHelpers
       (path.index('?') ? '' : '?') +
 
       # Append private_token if given a User object
-      (user.respond_to?(:private_token) ?
-        "&private_token=#{user.private_token}" : "")
+      if user.respond_to?(:private_token)
+        "&private_token=#{user.private_token}"
+      else
+        ''
+      end
+  end
+
+  def ci_api(path, user = nil)
+    "/ci/api/v1/#{path}" +
+
+      # Normalize query string
+      (path.index('?') ? '' : '?') +
+
+      # Append private_token if given a User object
+      if user.respond_to?(:private_token)
+        "&private_token=#{user.private_token}"
+      else
+        ''
+      end
   end
 
   def json_response
-    JSON.parse(response.body)
+    @_json_response ||= JSON.parse(response.body)
   end
 end

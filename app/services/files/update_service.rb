@@ -1,39 +1,31 @@
 require_relative "base_service"
 
 module Files
-  class UpdateService < BaseService
-    def execute
-      allowed = ::Gitlab::GitAccess.new(current_user, project).can_push_to_branch?(ref)
+  class UpdateService < Files::BaseService
+    class FileChangedError < StandardError; end
 
-      unless allowed
-        return error("You are not allowed to push into this branch")
+    def commit
+      repository.update_file(current_user, @file_path, @file_content,
+                             branch: @target_branch,
+                             previous_path: @previous_path,
+                             message: @commit_message,
+                             author_email: @author_email,
+                             author_name: @author_name)
+    end
+
+    private
+
+    def validate
+      super
+
+      if file_has_changed?
+        raise FileChangedError.new("You are attempting to update a file that has changed since you started editing it.")
       end
+    end
 
-      unless repository.branch_names.include?(ref)
-        return error("You can only create files if you are on top of a branch")
-      end
-
-      blob = repository.blob_at_branch(ref, path)
-
-      unless blob
-        return error("You can only edit text files")
-      end
-
-      edit_file_action = Gitlab::Satellite::EditFileAction.new(current_user, project, ref, path)
-      edit_file_action.commit!(
-        params[:content],
-        params[:commit_message],
-        params[:encoding],
-        params[:new_branch]
-      )
-
-      success
-    rescue Gitlab::Satellite::CheckoutFailed => ex
-      error("Your changes could not be committed because ref '#{ref}' could not be checked out", 400)
-    rescue Gitlab::Satellite::CommitFailed => ex
-      error("Your changes could not be committed. Maybe there was nothing to commit?", 409)
-    rescue Gitlab::Satellite::PushFailed => ex
-      error("Your changes could not be committed. Maybe the file was changed by another process?", 409)
+    def last_commit
+      @last_commit ||= Gitlab::Git::Commit.
+        last_for_path(@source_project.repository, @source_branch, @file_path)
     end
   end
 end

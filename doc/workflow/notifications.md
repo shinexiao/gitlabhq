@@ -1,10 +1,10 @@
-# GitLab Notifications
+# GitLab Notification Emails
 
-GitLab has notifications system in place to notify a user of events important for the workflow.
+GitLab has a notification system in place to notify a user of events that are important for the workflow.
 
 ## Notification settings
 
-Under user profile page you can find the notification settings.
+You can find notification settings under the user profile.
 
 ![notification settings](notifications/settings.png)
 
@@ -20,6 +20,7 @@ Each of these settings have levels of notification:
 * Participating - receive notifications from related resources
 * Watch - receive notifications from projects or groups user is a member of
 * Global - notifications as set at the global settings
+* Custom - user will receive notifications when mentioned, is participant and custom selected events.
 
 #### Global Settings
 
@@ -36,12 +37,14 @@ This means that you can set a different level of notifications per group while s
 to have a finer level setting per project.
 Organization like this is suitable for users that belong to different groups but don't have the
 same need for being notified for every group they are member of.
+These settings can be configured on group page or user profile notifications dropdown.
 
 #### Project Settings
 
 Project Settings are at the top level and any setting placed at this level will take precedence of any
 other setting.
 This is suitable for users that have different needs for notifications per project basis.
+These settings can be configured on project page or user profile notifications dropdown.
 
 ## Notification events
 
@@ -52,20 +55,46 @@ Below is the table of events users can be notified of:
 | New SSH key added            | User                                                              | Security email, always sent. |
 | New email added              | User                                                              | Security email, always sent. |
 | New user created             | User                                                              | Sent on user creation, except for omniauth (LDAP)|
-| New issue created            | Issue assignee [1], project members [2]                           | [1] not disabled, [2] higher than participating |
 | User added to project        | User                                                              | Sent when user is added to project |
 | Project access level changed | User                                                              | Sent when user project access level is changed |
 | User added to group          | User                                                              | Sent when user is added to group |
-| Project moved                | Project members [1]                                               | [1] not disabled |
 | Group access level changed   | User                                                              | Sent when user group access level is changed |
-| Close issue                  | Issue author [1], issue assignee [2], project members [3]         | [1] [2] not disabled, [3] higher than participating |
-| Reassign issue               | New issue assignee [1], old issue assignee [2]                    | [1] [2] not disabled |
-| Reopen issue                 | Project members [1]                                               | [1] higher than participating |
-| New merge request            | MR assignee [1]                                                   | [1] not disabled |
-| Reassign merge request       | New MR assignee [1], old MR assignee [2]                          | [1] [2] not disabled |
-| Close merge request          | MR author [1], MR assignee [2], project members [3]               | [1] [2] not disabled, [3] higher than participating |
-| Reopen merge request         | Project members [1]                                               | [1] higher than participating |
-| Merge merge request          | MR author [1], MR assignee [2], project members [3]               | [1] [2] not disabled, [3] higher than participating |
-| New comment                  | Mentioned users [1], users participating [2], project members [3] | [1] [2] not disabled, [3] higher than participating |
+| Project moved                | Project members [1]                                               | [1] not disabled |
+
+### Issue / Merge Request events
+
+In all of the below cases, the notification will be sent to:
+- Participants:
+  - the author and assignee of the issue/merge request
+  - authors of comments on the issue/merge request
+  - anyone mentioned by `@username` in the issue/merge request title or description
+  - anyone mentioned by `@username` in any of the comments on the issue/merge request
+
+    ...with notification level "Participating" or higher
+
+- Watchers: users with notification level "Watch"
+- Subscribers: anyone who manually subscribed to the issue/merge request
+- Custom: Users with notification level "custom" who turned on notifications for any of the events present in the table below
+
+| Event                  | Sent to |
+|------------------------|---------|
+| New issue              | |
+| Close issue            | |
+| Reassign issue         | The above, plus the old assignee |
+| Reopen issue           | |
+| New merge request      | |
+| Reassign merge request | The above, plus the old assignee |
+| Close merge request    | |
+| Reopen merge request   | |
+| Merge merge request    | |
+| New comment            | The above, plus anyone mentioned by `@username` in the comment, with notification level "Mention" or higher |
 
 
+In addition, if the title or description of an Issue or Merge Request is
+changed, notifications will be sent to any **new** mentions by `@username` as
+if they had been mentioned in the original text.
+
+You won't receive notifications for Issues, Merge Requests or Milestones
+created by yourself. You will only receive automatic notifications when
+somebody else comments or adds changes to the ones that you've created or
+mentions you.

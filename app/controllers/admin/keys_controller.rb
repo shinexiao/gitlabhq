@@ -1,12 +1,12 @@
 class Admin::KeysController < Admin::ApplicationController
-  before_filter :user, only: [:show, :destroy]
+  before_action :user, only: [:show, :destroy]
 
   def show
     @key = user.keys.find(params[:id])
 
     respond_to do |format|
       format.html
-      format.js { render nothing: true }
+      format.js { head :ok }
     end
   end
 

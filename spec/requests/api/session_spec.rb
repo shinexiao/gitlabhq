@@ -7,9 +7,9 @@ describe API::API, api: true  do
 
   describe "POST /session" do
     context "when valid password" do
-      it "should return private token" do
+      it "returns private token" do
         post api("/session"), email: user.email, password: '12345678'
-        expect(response.status).to eq(201)
+        expect(response).to have_http_status(201)
 
         expect(json_response['email']).to eq(user.email)
         expect(json_response['private_token']).to eq(user.private_token)
@@ -17,10 +17,21 @@ describe API::API, api: true  do
         expect(json_response['can_create_project']).to eq(user.can_create_project?)
         expect(json_response['can_create_group']).to eq(user.can_create_group?)
       end
+
+      context 'with 2FA enabled' do
+        it 'rejects sign in attempts' do
+          user = create(:user, :two_factor)
+
+          post api('/session'), email: user.email, password: user.password
+
+          expect(response).to have_http_status(401)
+          expect(response.body).to include('You have 2FA enabled.')
+        end
+      end
     end
 
     context 'when email has case-typo and password is valid' do
-      it 'should return private token' do
+      it 'returns private token' do
         post api('/session'), email: user.email.upcase, password: '12345678'
         expect(response.status).to eq 201
 
@@ -33,7 +44,7 @@ describe API::API, api: true  do
     end
 
     context 'when login has case-typo and password is valid' do
-      it 'should return private token' do
+      it 'returns private token' do
         post api('/session'), login: user.username.upcase, password: '12345678'
         expect(response.status).to eq 201
 
@@ -46,9 +57,9 @@ describe API::API, api: true  do
     end
 
     context "when invalid password" do
-      it "should return authentication error" do
+      it "returns authentication error" do
         post api("/session"), email: user.email, password: '123'
-        expect(response.status).to eq(401)
+        expect(response).to have_http_status(401)
 
         expect(json_response['email']).to be_nil
         expect(json_response['private_token']).to be_nil
@@ -56,9 +67,9 @@ describe API::API, api: true  do
     end
 
     context "when empty password" do
-      it "should return authentication error" do
+      it "returns authentication error" do
         post api("/session"), email: user.email
-        expect(response.status).to eq(401)
+        expect(response).to have_http_status(401)
 
         expect(json_response['email']).to be_nil
         expect(json_response['private_token']).to be_nil
@@ -66,9 +77,9 @@ describe API::API, api: true  do
     end
 
     context "when empty name" do
-      it "should return authentication error" do
+      it "returns authentication error" do
         post api("/session"), password: user.password
-        expect(response.status).to eq(401)
+        expect(response).to have_http_status(401)
 
         expect(json_response['email']).to be_nil
         expect(json_response['private_token']).to be_nil

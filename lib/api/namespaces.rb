@@ -1,22 +1,21 @@
 module API
   # namespaces API
   class Namespaces < Grape::API
-    before do
-      authenticate!
-      authenticated_as_admin!
-    end
+    before { authenticate! }
 
     resource :namespaces do
-      # Get a namespaces list
-      #
-      # Example Request:
-      #  GET /namespaces
+      desc 'Get a namespaces list' do
+        success Entities::Namespace
+      end
+      params do
+        optional :search, type: String, desc: "Search query for namespaces"
+      end
       get do
-        @namespaces = Namespace.all
-        @namespaces = @namespaces.search(params[:search]) if params[:search].present?
-        @namespaces = paginate @namespaces
+        namespaces = current_user.admin ? Namespace.all : current_user.namespaces
 
-        present @namespaces, with: Entities::Namespace
+        namespaces = namespaces.search(params[:search]) if params[:search].present?
+
+        present paginate(namespaces), with: Entities::Namespace
       end
     end
   end

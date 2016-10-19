@@ -5,6 +5,9 @@
 #
 module Gitlab
   module Access
+    class AccessDeniedError < StandardError; end
+
+    NO_ACCESS = 0
     GUEST     = 10
     REPORTER  = 20
     DEVELOPER = 30
@@ -12,9 +15,10 @@ module Gitlab
     OWNER     = 50
 
     # Branch protection settings
-    PROTECTION_NONE         = 0
-    PROTECTION_DEV_CAN_PUSH = 1
-    PROTECTION_FULL         = 2
+    PROTECTION_NONE          = 0
+    PROTECTION_DEV_CAN_PUSH  = 1
+    PROTECTION_FULL          = 2
+    PROTECTION_DEV_CAN_MERGE = 3
 
     class << self
       def values
@@ -49,11 +53,16 @@ module Gitlab
         }
       end
 
+      def sym_options_with_owner
+        sym_options.merge(owner: OWNER)
+      end
+
       def protection_options
         {
-          "Not protected, developers and masters can (force) push and delete the branch" => PROTECTION_NONE,
-          "Partially protected, developers can also push but prevent all force pushes and deletion" => PROTECTION_DEV_CAN_PUSH,
-          "Fully protected, only masters can push and prevent all force pushes and deletion" => PROTECTION_FULL,
+          "Not protected: Both developers and masters can push new commits, force push, or delete the branch." => PROTECTION_NONE,
+          "Protected against pushes: Developers cannot push new commits, but are allowed to accept merge requests to the branch." => PROTECTION_DEV_CAN_MERGE,
+          "Partially protected: Developers can push new commits, but cannot force push or delete the branch. Masters can do all of those." => PROTECTION_DEV_CAN_PUSH,
+          "Fully protected: Developers cannot push new commits, force push, or delete the branch. Only masters can do any of those." => PROTECTION_FULL,
         }
       end
 

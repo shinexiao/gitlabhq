@@ -1,21 +1,26 @@
 module MergeRequests
   class CreateService < MergeRequests::BaseService
     def execute
-      label_params = params[:label_ids]
-      merge_request = MergeRequest.new(params.except(:label_ids))
-      merge_request.source_project = project
-      merge_request.target_project ||= project
-      merge_request.author = current_user
+      # @project is used to determine whether the user can set the merge request's
+      # assignee, milestone and labels. Whether they can depends on their
+      # permissions on the target project.
+      source_project = @project
+      @project = Project.find(params[:target_project_id]) if params[:target_project_id]
 
-      if merge_request.save
-        merge_request.update_attributes(label_ids: label_params)
-        event_service.open_mr(merge_request, current_user)
-        notification_service.new_merge_request(merge_request, current_user)
-        merge_request.create_cross_references!(merge_request.project, current_user)
-        execute_hooks(merge_request)
-      end
+      params[:target_project_id] ||= source_project.id
 
-      merge_request
+      merge_request = MergeRequest.new
+      merge_request.source_project = source_project
+      merge_request.merge_params['force_remove_source_branch'] = params.delete(:force_remove_source_branch)
+
+      create(merge_request)
+    end
+
+    def after_create(issuable)
+      event_service.open_mr(issuable, current_user)
+      notification_service.new_merge_request(issuable, current_user)
+      todo_service.new_merge_request(issuable, current_user)
+      issuable.cache_merge_request_closes_issues!(current_user)
     end
   end
 end

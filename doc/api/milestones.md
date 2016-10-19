@@ -6,7 +6,24 @@ Returns a list of project milestones.
 
 ```
 GET /projects/:id/milestones
+GET /projects/:id/milestones?iid=42
+GET /projects/:id/milestones?state=active
+GET /projects/:id/milestones?state=closed
 ```
+
+Parameters:
+
+| Attribute | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `id` | integer | yes | The ID of a project |
+| `iid` | integer | optional | Return only the milestone having the given `iid` |
+| `state` | string | optional | Return  only `active` or `closed` milestones` |
+
+```bash
+curl --header "PRIVATE-TOKEN: 9koXpg98eAheJpvBs5tK" https://gitlab.example.com/api/v3/projects/5/milestones
+```
+
+Example Response:
 
 ```json
 [
@@ -24,9 +41,6 @@ GET /projects/:id/milestones
 ]
 ```
 
-Parameters:
-
-- `id` (required) - The ID of a project
 
 ## Get single milestone
 

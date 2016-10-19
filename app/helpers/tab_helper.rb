@@ -67,6 +67,14 @@ module TabHelper
       path.any? do |single_path|
         current_path?(single_path)
       end
+    elsif page = options.delete(:page)
+      unless page.respond_to?(:each)
+        page = [page]
+      end
+
+      page.any? do |single_page|
+        current_page?(single_page)
+      end
     else
       c = options.delete(:controller)
       a = options.delete(:action)
@@ -87,9 +95,11 @@ module TabHelper
   end
 
   def project_tab_class
-    return "active" if current_page?(controller: "/projects", action: :edit, id: @project)
+    if controller.controller_path.start_with?('projects')
+      return 'active'
+    end
 
-    if ['services', 'hooks', 'deploy_keys', 'project_members', 'protected_branches'].include? controller.controller_name
+    if ['services', 'hooks', 'deploy_keys', 'protected_branches'].include? controller.controller_name
       "active"
     end
   end
@@ -103,21 +113,11 @@ module TabHelper
     end
   end
 
-  # Use nav_tab for save controller/action  but different params
-  def nav_tab(key, value, &block)
-    o = {}
-    o[:class] = ""
-
-    if value.nil?
-      o[:class] << " active" if params[key].blank?
-    else
-      o[:class] << " active" if params[key] == value
+  def profile_tab_class
+    if controller.controller_path.start_with?('profiles')
+      return 'active'
     end
 
-    if block_given?
-      content_tag(:li, capture(&block), o)
-    else
-      content_tag(:li, nil, o)
-    end
+    'active' if current_controller?('oauth/applications')
   end
 end

@@ -12,7 +12,7 @@ Feature: Project Snippets
     And I should not see "Snippet two" in snippets
 
   Scenario: I create new project snippet
-    Given I click link "New Snippet"
+    Given I click link "New snippet"
     And I submit new snippet "Snippet three"
     Then I should see snippet "Snippet three"
 
@@ -30,5 +30,5 @@ Feature: Project Snippets
 
   Scenario: I destroy "Snippet one"
     Given I visit snippet page "Snippet one"
-    And I click link "Remove Snippet"
+    And I click link "Delete"
     Then I should not see "Snippet one" in snippets

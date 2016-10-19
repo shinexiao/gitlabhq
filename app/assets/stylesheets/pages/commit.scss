@@ -1,19 +1,15 @@
-.commit-title{
+.commit-title {
   display: block;
 }
 
-.commit-title{
-  margin-bottom: 10px;
-}
-
-.commit-author, .commit-committer{
+.commit-author, .commit-committer {
   display: block;
   color: #999;
   font-weight: normal;
   font-style: italic;
 }
 
-.commit-author strong, .commit-committer strong{
+.commit-author strong, .commit-committer strong {
   font-weight: bold;
   font-style: normal;
 }
@@ -24,36 +20,77 @@
   margin: 0;
   padding: 0;
   margin-top: 10px;
-}
-
-.commit-stat-summary {
-  color: #666;
-  font-size: 14px;
-  font-weight: normal;
-  padding: 3px 0;
-  margin-bottom: 10px;
+  word-break: normal;
+  white-space: pre-wrap;
 }
 
 .commit-info-row {
   margin-bottom: 10px;
+  line-height: 24px;
+  padding-top: 6px;
+
+  &.commit-info-row-header {
+    line-height: 34px;
+
+    @media (min-width: $screen-sm-min) {
+      margin-bottom: 0;
+    }
+
+    .commit-options-dropdown-caret {
+      @media (max-width: $screen-sm) {
+        margin-left: 0;
+      }
+    }
+  }
+
   .avatar {
     @extend .avatar-inline;
+    margin-left: 0;
+
+    @media (min-width: $screen-sm-min) {
+      margin-left: 4px;
+    }
   }
+
   .commit-committer-link,
   .commit-author-link {
-    color: #444;
+    color: $gl-gray;
     font-weight: bold;
+  }
+
+  .fa-clipboard {
+    color: $dropdown-title-btn-color;
+  }
+
+  .commit-info {
+    &.branches {
+      margin-left: 8px;
+    }
+  }
+
+  .ci-status-link {
+
+    svg {
+      position: relative;
+      top: 2px;
+      margin: 0 2px 0 3px;
+    }
+  }
+}
+
+.ci-status-link {
+  svg {
+    overflow: visible;
   }
 }
 
 .commit-box {
-  margin: 10px 0;
-  border-top: 1px solid #ddd;
-  border-bottom: 1px solid #ddd;
-  padding: 20px 0;
+  border-top: 1px solid $border-color;
 
   .commit-title {
     margin: 0;
+    font-size: 23px;
+    color: $gl-gray-dark;
   }
 
   .commit-description {
@@ -61,36 +98,48 @@
   }
 }
 
-.file-stats a {
-  color: $style_color;
-}
-
 .file-stats {
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 10px 0;
+
+    li {
+      padding: 3px 0;
+      line-height: 20px;
+    }
+  }
+
   .new-file {
     a {
-      color: #090;
-    }
-    i {
-      color: #1BCF00;
+      color: $gl-text-green;
     }
   }
+
   .renamed-file {
-    i {
-      color: #FE9300;
+    a {
+      color: $gl-text-orange;
     }
   }
+
   .deleted-file {
     a {
-      color: #B00;
-    }
-    i {
-      color: #EE0000;
+      color: $gl-text-red;
     }
   }
-  .edit-file{
-    i{
-      color: #555;
+
+  .edit-file {
+    a {
+      color: $gl-text-color;
     }
+  }
+}
+
+.commit-action-buttons {
+  i {
+    color: $gl-icon-color;
+    font-size: 13px;
+    margin-right: 3px;
   }
 }
 
@@ -103,6 +152,7 @@
   position: relative;
   font-family: $monospace_font;
   $left: 12px;
+  overflow: hidden; // See https://gitlab.com/gitlab-org/gitlab-ce/issues/13987
   .max-width-marker {
     width: 72ch;
     color: rgba(0, 0, 0, 0.0);
@@ -113,6 +163,7 @@
     position: absolute;
     z-index: 1;
   }
+
   > textarea {
     background-color: rgba(0, 0, 0, 0.0);
     font-family: inherit;

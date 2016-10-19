@@ -1,11 +1,15 @@
-.clearfix
-  = render 'filter'
+- page_title    "Projects"
+- header_title  "Projects", dashboard_projects_path
 
-%hr
-.public-projects
-  %ul.bordered-list.top-list
-    = render @projects
-    - unless @projects.present?
-      .nothing-here-block No public projects
+- if current_user
+  = render 'dashboard/projects_head'
+- else
+  = render 'explore/head'
 
-  = paginate @projects, theme: "gitlab"
+.top-area
+  = render 'explore/projects/nav'
+
+  .nav-controls
+    = render 'filter'
+
+= render 'projects', projects: @projects

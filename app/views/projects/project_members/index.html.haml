@@ -1,35 +1,28 @@
-%h3.page-title
-  Users with access to this project
+- page_title "Members"
 
-%p.light
-  Read more about project permissions
-  %strong= link_to "here", help_page_path("permissions", "permissions"), class: "vlink"
-
-%hr
-
-.clearfix.js-toggle-container
-  = form_tag namespace_project_project_members_path(@project.namespace, @project), method: :get, class: 'form-inline member-search-form'  do
-    .form-group
-      = search_field_tag :search, params[:search], { placeholder: 'Find existing member by name', class: 'form-control search-text-input input-mn-300' }
-    = button_tag 'Search', class: 'btn'
-
+.project-members-page.prepend-top-default
+  %h4.project-members-title.clearfix
+    Members
+    = link_to "Import", import_namespace_project_project_members_path(@project.namespace, @project), class: "btn btn-default pull-right hidden-xs", title: "Import members from another project"
   - if can?(current_user, :admin_project_member, @project)
-    %span.pull-right
-      = button_tag class: 'btn btn-new btn-grouped js-toggle-button', type: 'button' do
-        Add members
-        %i.fa.fa-chevron-down
-      = link_to import_namespace_project_project_members_path(@project.namespace, @project), class: "btn btn-grouped", title: "Import members from another project" do
-        Import members
-
-    .js-toggle-content.hide.new-group-member-holder
+    .project-members-new.append-bottom-default
+      %p.clearfix
+        Add new user to
+        %strong= @project.name
       = render "new_project_member"
 
-= render "team", members: @project_members
+      = render 'shared/members/requests', membership_source: @project, requesters: @requesters
 
-- if @group
-  = render "group_members", members: @group_members
+  .append-bottom-default.clearfix
+    %h5.member.existing-title
+      Existing users and groups
+    = form_tag namespace_project_project_members_path(@project.namespace, @project), method: :get, class: 'form-inline member-search-form'  do
+      .form-group
+        = search_field_tag :search, params[:search], { placeholder: 'Find existing members by name', class: 'form-control', spellcheck: false }
+        %button.member-search-btn{ type: "submit", "aria-label" => "Submit search" }
+          = icon("search")
+  - if @group_links.any?
+    = render 'groups', group_links: @group_links
 
-:coffeescript
-  $('form.member-search-form').on 'submit', (event) ->
-    event.preventDefault()
-    Turbolinks.visit @.action + '?' + $(@).serialize()
+  = render 'team', members: @project_members
+  = paginate @project_members, theme: "gitlab"

@@ -1,18 +1,20 @@
 class Projects::SnippetsController < Projects::ApplicationController
-  before_filter :module_enabled
-  before_filter :snippet, only: [:show, :edit, :destroy, :update, :raw]
+  include ToggleAwardEmoji
+
+  before_action :module_enabled
+  before_action :snippet, only: [:show, :edit, :destroy, :update, :raw, :toggle_award_emoji]
 
   # Allow read any snippet
-  before_filter :authorize_read_project_snippet!
+  before_action :authorize_read_project_snippet!, except: [:new, :create, :index]
 
   # Allow write(create) snippet
-  before_filter :authorize_write_project_snippet!, only: [:new, :create]
+  before_action :authorize_create_project_snippet!, only: [:new, :create]
 
   # Allow modify snippet
-  before_filter :authorize_modify_project_snippet!, only: [:edit, :update]
+  before_action :authorize_update_project_snippet!, only: [:edit, :update]
 
   # Allow destroy snippet
-  before_filter :authorize_admin_project_snippet!, only: [:destroy]
+  before_action :authorize_admin_project_snippet!, only: [:destroy]
 
   respond_to :html
 
@@ -21,18 +23,24 @@ class Projects::SnippetsController < Projects::ApplicationController
       filter: :by_project,
       project: @project
     })
+    @snippets = @snippets.page(params[:page])
   end
 
   def new
-    @snippet = @project.snippets.build
+    @snippet = @noteable = @project.snippets.build
   end
 
   def create
     @snippet = CreateSnippetService.new(@project, current_user,
                                         snippet_params).execute
-    respond_with(@snippet,
-                 location: namespace_project_snippet_path(@project.namespace,
-                                                          @project, @snippet))
+
+    if @snippet.valid?
+      respond_with(@snippet,
+                   location: namespace_project_snippet_path(@project.namespace,
+                                                            @project, @snippet))
+    else
+      render :new
+    end
   end
 
   def edit
@@ -48,7 +56,7 @@ class Projects::SnippetsController < Projects::ApplicationController
 
   def show
     @note = @project.notes.new(noteable: @snippet)
-    @notes = @snippet.notes.fresh
+    @notes = Banzai::NoteRenderer.render(@snippet.notes.fresh, @project, current_user)
     @noteable = @snippet
   end
 
@@ -74,9 +82,14 @@ class Projects::SnippetsController < Projects::ApplicationController
   def snippet
     @snippet ||= @project.snippets.find(params[:id])
   end
+  alias_method :awardable, :snippet
 
-  def authorize_modify_project_snippet!
-    return render_404 unless can?(current_user, :modify_project_snippet, @snippet)
+  def authorize_read_project_snippet!
+    return render_404 unless can?(current_user, :read_project_snippet, @snippet)
+  end
+
+  def authorize_update_project_snippet!
+    return render_404 unless can?(current_user, :update_project_snippet, @snippet)
   end
 
   def authorize_admin_project_snippet!
@@ -84,7 +97,7 @@ class Projects::SnippetsController < Projects::ApplicationController
   end
 
   def module_enabled
-    return render_404 unless @project.snippets_enabled
+    return render_404 unless @project.feature_available?(:snippets, current_user)
   end
 
   def snippet_params

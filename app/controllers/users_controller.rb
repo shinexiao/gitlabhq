@@ -1,21 +1,9 @@
 class UsersController < ApplicationController
-  skip_before_filter :authenticate_user!
-  before_filter :set_user
-  layout :determine_layout
+  skip_before_action :authenticate_user!
+  before_action :user, except: [:exists]
+  before_action :authorize_read_user!, only: [:show]
 
   def show
-    @contributed_projects = contributed_projects.joined(@user).
-      reject(&:forked?)
-
-    @projects = @user.personal_projects.
-      where(id: authorized_projects_ids).includes(:namespace)
-
-    # Collect only groups common for both users
-    @groups = @user.groups & GroupsFinder.new.execute(current_user)
-
-    @title = @user.name
-    @title_url = user_path(@user)
-
     respond_to do |format|
       format.html
 
@@ -31,67 +19,128 @@ class UsersController < ApplicationController
     end
   end
 
+  def groups
+    load_groups
+
+    respond_to do |format|
+      format.html { render 'show' }
+      format.json do
+        render json: {
+          html: view_to_html_string("shared/groups/_list", groups: @groups)
+        }
+      end
+    end
+  end
+
+  def projects
+    load_projects
+
+    respond_to do |format|
+      format.html { render 'show' }
+      format.json do
+        render json: {
+          html: view_to_html_string("shared/projects/_list", projects: @projects, remote: true)
+        }
+      end
+    end
+  end
+
+  def contributed
+    load_contributed_projects
+
+    respond_to do |format|
+      format.html { render 'show' }
+      format.json do
+        render json: {
+          html: view_to_html_string("shared/projects/_list", projects: @contributed_projects)
+        }
+      end
+    end
+  end
+
+  def snippets
+    load_snippets
+
+    respond_to do |format|
+      format.html { render 'show' }
+      format.json do
+        render json: {
+          html: view_to_html_string("snippets/_snippets", collection: @snippets, remote: true)
+        }
+      end
+    end
+  end
+
   def calendar
     calendar = contributions_calendar
-    @timestamps = calendar.timestamps
-    @starting_year = calendar.starting_year
-    @starting_month = calendar.starting_month
+    @activity_dates = calendar.activity_dates
 
     render 'calendar', layout: false
   end
 
   def calendar_activities
-    @calendar_date = Date.parse(params[:date]) rescue nil
-    @events = []
-
-    if @calendar_date
-      @events = contributions_calendar.events_by_date(@calendar_date)
-    end
+    @calendar_date = Date.parse(params[:date]) rescue Date.today
+    @events = contributions_calendar.events_by_date(@calendar_date)
 
     render 'calendar_activities', layout: false
   end
 
-  def determine_layout
-    if current_user
-      'navless'
-    else
-      'public_users'
-    end
+  def exists
+    render json: { exists: Namespace.where(path: params[:username].downcase).any? }
   end
 
   private
 
-  def set_user
-    @user = User.find_by_username!(params[:username])
-
-    unless current_user || @user.public_profile?
-      return authenticate_user!
-    end
+  def authorize_read_user!
+    render_404 unless can?(current_user, :read_user, user)
   end
 
-  def authorized_projects_ids
-    # Projects user can view
-    @authorized_projects_ids ||=
-      ProjectsFinder.new.execute(current_user).pluck(:id)
+  def user
+    @user ||= User.find_by_username!(params[:username])
   end
 
   def contributed_projects
-    @contributed_projects = Project.
-      where(id: authorized_projects_ids & @user.contributed_projects_ids).
-      includes(:namespace)
+    ContributedProjectsFinder.new(user).execute(current_user)
   end
 
   def contributions_calendar
     @contributions_calendar ||= Gitlab::ContributionsCalendar.
-      new(contributed_projects.reject(&:forked?), @user)
+      new(contributed_projects, user)
   end
 
   def load_events
     # Get user activity feed for projects common for both users
-    @events = @user.recent_events.
-      where(project_id: authorized_projects_ids).
-      with_associations
+    @events = user.recent_events.
+      merge(projects_for_current_user).
+      references(:project).
+      with_associations.
+      limit_recent(20, params[:offset])
+  end
 
-    @events = @events.limit(20).offset(params[:offset] || 0)
+  def load_projects
+    @projects =
+      PersonalProjectsFinder.new(user).execute(current_user)
+      .page(params[:page])
+  end
+
+  def load_contributed_projects
+    @contributed_projects = contributed_projects.joined(user)
+  end
+
+  def load_groups
+    @groups = JoinedGroupsFinder.new(user).execute(current_user)
+  end
+
+  def load_snippets
+    @snippets = SnippetsFinder.new.execute(
+      current_user,
+      filter: :by_user,
+      user: user,
+      scope: params[:scope]
+    ).page(params[:page])
+  end
+
+  def projects_for_current_user
+    ProjectsFinder.new.execute(current_user)
   end
 end

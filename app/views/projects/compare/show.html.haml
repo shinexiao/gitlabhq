@@ -1,23 +1,24 @@
+- @no_container = true
+- page_title "#{params[:from]}...#{params[:to]}"
 = render "projects/commits/head"
 
-%h3.page-title
-  Compare View
+%div{ class: container_class }
+  .sub-header-block.no-bottom-space
+    = render "form"
 
-= render "form"
-
-- if @commits.present?
-  = render "projects/commits/commit_list"
-  = render "projects/diffs/diffs", diffs: @diffs, project: @project
-- else
-  .light-well
-    .center
-      %h4
-        There isn't anything to compare.
-      %p.slead
-        - if params[:to] == params[:from]
-          %span.label-branch #{params[:from]}
-          and
-          %span.label-branch #{params[:to]}
-          are the same.
-        - else
-          You'll need to use different branch names to get a valid comparison.
+  - if @commits.present?
+    = render "projects/commits/commit_list"
+    = render "projects/diffs/diffs", diffs: @diffs
+  - else
+    .light-well
+      .center
+        %h4
+          There isn't anything to compare.
+        %p.slead
+          - if params[:to] == params[:from]
+            %span.label-branch #{params[:from]}
+            and
+            %span.label-branch #{params[:to]}
+            are the same.
+          - else
+            You'll need to use different branch names to get a valid comparison.

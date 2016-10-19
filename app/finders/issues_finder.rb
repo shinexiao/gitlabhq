@@ -19,4 +19,14 @@ class IssuesFinder < IssuableFinder
   def klass
     Issue
   end
+
+  private
+
+  def init_collection
+    Issue.visible_to_user(current_user)
+  end
+
+  def iid_pattern
+    @iid_pattern ||= %r{\A#{Regexp.escape(Issue.reference_prefix)}(?<iid>\d+)\z}
+  end
 end

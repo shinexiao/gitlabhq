@@ -1,19 +1,17 @@
 class Import::GitlabController < Import::BaseController
-  before_filter :verify_gitlab_import_enabled
-  before_filter :gitlab_auth, except: :callback
+  before_action :verify_gitlab_import_enabled
+  before_action :gitlab_auth, except: :callback
 
   rescue_from OAuth2::Error, with: :gitlab_unauthorized
 
   def callback
-    token = client.get_token(params[:code], callback_import_gitlab_url)
-    current_user.gitlab_access_token = token
-    current_user.save
+    session[:gitlab_access_token] = client.get_token(params[:code], callback_import_gitlab_url)
     redirect_to status_import_gitlab_url
   end
 
   def status
     @repos = client.projects
-    
+
     @already_added_projects = current_user.created_projects.where(import_type: "gitlab")
     already_added_projects_names = @already_added_projects.pluck(:import_source)
 
@@ -28,26 +26,28 @@ class Import::GitlabController < Import::BaseController
   def create
     @repo_id = params[:repo_id].to_i
     repo = client.project(@repo_id)
-    @target_namespace = params[:new_namespace].presence || repo["namespace"]["path"]
-    @project_name = repo["name"]
-    
-    namespace = get_or_create_namespace || (render and return)
+    @project_name = repo['name']
+    @target_namespace = find_or_create_namespace(repo['namespace']['path'], client.user['username'])
 
-    @project = Gitlab::GitlabImport::ProjectCreator.new(repo, namespace, current_user).execute
+    if current_user.can?(:create_projects, @target_namespace)
+      @project = Gitlab::GitlabImport::ProjectCreator.new(repo, @target_namespace, current_user, access_params).execute
+    else
+      render 'unauthorized'
+    end
   end
 
   private
 
   def client
-    @client ||= Gitlab::GitlabImport::Client.new(current_user.gitlab_access_token)
+    @client ||= Gitlab::GitlabImport::Client.new(session[:gitlab_access_token])
   end
 
   def verify_gitlab_import_enabled
-    not_found! unless gitlab_import_enabled?
+    render_404 unless gitlab_import_enabled?
   end
 
   def gitlab_auth
-    if current_user.gitlab_access_token.blank?
+    if session[:gitlab_access_token].blank?
       go_to_gitlab_for_permissions
     end
   end
@@ -58,5 +58,9 @@ class Import::GitlabController < Import::BaseController
 
   def gitlab_unauthorized
     go_to_gitlab_for_permissions
+  end
+
+  def access_params
+    { gitlab_access_token: session[:gitlab_access_token] }
   end
 end

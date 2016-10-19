@@ -1,14 +1,14 @@
 # Use this hook to configure devise mailer, warden hooks and so forth. The first
 # four configuration values can also be set straight in your models.
 Devise.setup do |config|
+  config.warden do |manager|
+    manager.default_strategies(scope: :user).unshift :two_factor_authenticatable
+    manager.default_strategies(scope: :user).unshift :two_factor_backupable
+  end
+
   # ==> Mailer Configuration
-  # Configure the e-mail address which will be shown in Devise::Mailer,
-  # note that it will be overwritten if you use your own mailer class with default "from" parameter.
-  config.mailer_sender = "GitLab <#{Gitlab.config.gitlab.email_from}>"
-
-
   # Configure the class responsible to send e-mails.
-  # config.mailer = "Devise::Mailer"
+  config.mailer = "DeviseMailer"
 
   # ==> ORM configuration
   # Load and configure the ORM. Supports :active_record (default) and
@@ -60,7 +60,7 @@ Devise.setup do |config|
   # It will change confirmation, password recovery and other workflows
   # to behave the same regardless if the e-mail provided was right or wrong.
   # Does not affect registerable.
-  # config.paranoid = true
+  config.paranoid = true
 
   # ==> Configuration for :database_authenticatable
   # For bcrypt, this is the cost for hashing the password and defaults to 10. If
@@ -100,6 +100,9 @@ Devise.setup do |config|
   # secure: true in order to force SSL only cookies.
   # config.cookie_options = {}
 
+  # Send a notification email when the user's password is changed
+  config.send_password_change_notification = true
+
   # ==> Configuration for :validatable
   # Range for password length. Default is 6..128.
   config.password_length = 8..128
@@ -121,14 +124,14 @@ Devise.setup do |config|
   config.lock_strategy = :failed_attempts
 
   # Defines which key will be used when locking and unlocking an account
-  # config.unlock_keys = [ :email ]
+  config.unlock_keys = [ :email ]
 
   # Defines which strategy will be used to unlock an account.
   # :email = Sends an unlock link to the user email
   # :time  = Re-enables login after a certain amount of time (see :unlock_in below)
   # :both  = Enables both strategies
   # :none  = No unlock strategy. You should handle unlocking by yourself.
-  config.unlock_strategy = :time
+  config.unlock_strategy = :both
 
   # Number of authentication tries before locking an account if lock_strategy
   # is failed attempts.
@@ -147,6 +150,10 @@ Devise.setup do |config|
   # change their passwords.
   # When someone else invites you to GitLab this time is also used so it should be pretty long.
   config.reset_password_within = 2.days
+
+  # When set to false, does not sign a user in automatically after their password is
+  # reset. Defaults to true, so a user is signed in automatically after a reset.
+  config.sign_in_after_reset_password = false
 
   # ==> Configuration for :encryptable
   # Allow you to use another encryption algorithm besides bcrypt (default). You can use
@@ -199,16 +206,16 @@ Devise.setup do |config|
   # If you want to use other strategies, that are not supported by Devise, or
   # change the failure app, you can configure them inside the config.warden block.
   #
-  # config.warden do |manager|
-  #   manager.failure_app   = AnotherApp
-  #   manager.intercept_401 = false
-  #   manager.default_strategies(scope: :user).unshift :some_external_strategy
-  # end
+  config.warden do |manager|
+    manager.failure_app = Gitlab::DeviseFailure
+    # manager.intercept_401 = false
+    # manager.default_strategies(scope: :user).unshift :some_external_strategy
+  end
 
   if Gitlab::LDAP::Config.enabled?
     Gitlab.config.ldap.servers.values.each do |server|
       if server['allow_username_or_email_login']
-        email_stripping_proc = ->(name) {name.gsub(/@.*$/,'')}
+        email_stripping_proc = ->(name) {name.gsub(/@.*\z/, '')}
       else
         email_stripping_proc = ->(name) {name}
       end
@@ -237,8 +244,18 @@ Devise.setup do |config|
       # An Array from the configuration will be expanded.
       provider_arguments.concat provider['args']
     when Hash
+      # Add procs for handling SLO
+      if provider['name'] == 'cas3'
+        provider['args'][:on_single_sign_out] = lambda do |request|
+          ticket = request.params[:session_index]
+          raise "Service Ticket not found." unless Gitlab::OAuth::Session.valid?(:cas3, ticket)
+          Gitlab::OAuth::Session.destroy(:cas3, ticket)
+          true
+        end
+      end
+
       # A Hash from the configuration will be passed as is.
-      provider_arguments << provider['args']
+      provider_arguments << provider['args'].symbolize_keys
     end
 
     config.omniauth provider['name'].to_sym, *provider_arguments

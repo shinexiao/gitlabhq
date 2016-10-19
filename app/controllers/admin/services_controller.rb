@@ -1,5 +1,7 @@
 class Admin::ServicesController < Admin::ApplicationController
-  before_filter :service, only: [:edit, :update]
+  include ServiceParams
+
+  before_action :service, only: [:edit, :update]
 
   def index
     @services = services_templates
@@ -13,7 +15,7 @@ class Admin::ServicesController < Admin::ApplicationController
   end
 
   def update
-    if service.update_attributes(application_services_params[:service])
+    if service.update_attributes(service_params[:service])
       redirect_to admin_application_settings_services_path,
         notice: 'Application settings saved successfully'
     else
@@ -36,19 +38,5 @@ class Admin::ServicesController < Admin::ApplicationController
 
   def service
     @service ||= Service.where(id: params[:id], template: true).first
-  end
-
-  def application_services_params
-    params.permit(:id,
-      service: [
-        :title, :token, :type, :active, :api_key, :subdomain,
-        :room, :recipients, :project_url, :webhook,
-        :user_key, :device, :priority, :sound, :bamboo_url, :username, :password,
-        :build_key, :server, :teamcity_url, :build_type,
-        :description, :issues_url, :new_issue_url, :restrict_to_branch,
-        :send_from_committer_email, :disable_diffs,
-        :push_events, :tag_push_events, :note_events, :issues_events,
-        :merge_requests_events
-    ])
   end
 end

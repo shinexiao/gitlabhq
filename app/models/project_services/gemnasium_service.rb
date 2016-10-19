@@ -1,22 +1,3 @@
-# == Schema Information
-#
-# Table name: services
-#
-#  id                    :integer          not null, primary key
-#  type                  :string(255)
-#  title                 :string(255)
-#  project_id            :integer
-#  created_at            :datetime
-#  updated_at            :datetime
-#  active                :boolean          default(FALSE), not null
-#  properties            :text
-#  template              :boolean          default(FALSE)
-#  push_events           :boolean          default(TRUE)
-#  issues_events         :boolean          default(TRUE)
-#  merge_requests_events :boolean          default(TRUE)
-#  tag_push_events       :boolean          default(TRUE)
-#
-
 require "gemnasium/gitlab_service"
 
 class GemnasiumService < Service
@@ -56,6 +37,6 @@ class GemnasiumService < Service
       token: token,
       api_key: api_key,
       repo: project.repository.path_to_repo
-      )
+    )
   end
 end

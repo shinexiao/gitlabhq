@@ -1,22 +1,31 @@
 class Import::GithubController < Import::BaseController
-  before_filter :verify_github_import_enabled
-  before_filter :github_auth, except: :callback
+  before_action :verify_github_import_enabled
+  before_action :github_auth, only: [:status, :jobs, :create]
 
   rescue_from Octokit::Unauthorized, with: :github_unauthorized
 
+  helper_method :logged_in_with_github?
+
+  def new
+    if logged_in_with_github?
+      go_to_github_for_permissions
+    elsif session[:github_access_token]
+      redirect_to status_import_github_url
+    end
+  end
+
   def callback
-    token = client.get_token(params[:code])
-    current_user.github_access_token = token
-    current_user.save
+    session[:github_access_token] = client.get_token(params[:code])
+    redirect_to status_import_github_url
+  end
+
+  def personal_access_token
+    session[:github_access_token] = params[:personal_access_token]
     redirect_to status_import_github_url
   end
 
   def status
     @repos = client.repos
-    client.orgs.each do |org|
-      @repos += client.org_repos(org.login)
-    end
-
     @already_added_projects = current_user.created_projects.where(import_type: "github")
     already_added_projects_names = @already_added_projects.pluck(:import_source)
 
@@ -31,26 +40,29 @@ class Import::GithubController < Import::BaseController
   def create
     @repo_id = params[:repo_id].to_i
     repo = client.repo(@repo_id)
-    @target_namespace = params[:new_namespace].presence || repo.owner.login
-    @project_name = repo.name
-    
-    namespace = get_or_create_namespace || (render and return)
+    @project_name = params[:new_name].presence || repo.name
+    namespace_path = params[:target_namespace].presence || current_user.namespace_path
+    @target_namespace = find_or_create_namespace(namespace_path, current_user.namespace_path)
 
-    @project = Gitlab::GithubImport::ProjectCreator.new(repo, namespace, current_user).execute
+    if current_user.can?(:create_projects, @target_namespace)
+      @project = Gitlab::GithubImport::ProjectCreator.new(repo, @project_name, @target_namespace, current_user, access_params).execute
+    else
+      render 'unauthorized'
+    end
   end
 
   private
 
   def client
-    @client ||= Gitlab::GithubImport::Client.new(current_user.github_access_token)
+    @client ||= Gitlab::GithubImport::Client.new(session[:github_access_token])
   end
 
   def verify_github_import_enabled
-    not_found! unless github_import_enabled?
+    render_404 unless github_import_enabled?
   end
 
   def github_auth
-    if current_user.github_access_token.blank?
+    if session[:github_access_token].blank?
       go_to_github_for_permissions
     end
   end
@@ -60,6 +72,16 @@ class Import::GithubController < Import::BaseController
   end
 
   def github_unauthorized
-    go_to_github_for_permissions
+    session[:github_access_token] = nil
+    redirect_to new_import_github_url,
+      alert: 'Access denied to your GitHub account.'
+  end
+
+  def logged_in_with_github?
+    current_user.identities.exists?(provider: 'github')
+  end
+
+  def access_params
+    { github_access_token: session[:github_access_token] }
   end
 end

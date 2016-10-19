@@ -1,33 +1,41 @@
-%li.commit.js-toggle-container
-  .commit-row-title
-    %strong.str-truncated
-      = link_to_gfm commit.title, namespace_project_commit_path(project.namespace, project, commit.id), class: "commit-row-message"
+- if @note_counts
+  - note_count = @note_counts.fetch(commit.id, 0)
+- else
+  - notes = commit.notes
+  - note_count = notes.user.count
+
+- cache_key = [project.path_with_namespace, commit.id, current_application_settings, note_count]
+- cache_key.push(commit.status) if commit.status
+
+= cache(cache_key, expires_in: 1.day) do
+  %li.commit.js-toggle-container{ id: "commit-#{commit.short_id}" }
+    = author_avatar(commit, size: 36)
+
+    .commit-info-block
+      .commit-row-title
+        %span.item-title
+          = link_to_gfm commit.title, namespace_project_commit_path(project.namespace, project, commit.id), class: "commit-row-message"
+          %span.commit-row-message.visible-xs-inline
+            &middot;
+            = commit.short_id
+          - if commit.status
+            .visible-xs-inline
+              = render_commit_status(commit)
+          - if commit.description?
+            %a.text-expander.hidden-xs.js-toggle-button ...
+
+        .commit-actions.hidden-xs
+          - if commit.status
+            = render_commit_status(commit)
+          = clipboard_button(clipboard_text: commit.id)
+          = link_to commit.short_id, namespace_project_commit_path(project.namespace, project, commit), class: "commit-short-id btn btn-transparent"
+          = link_to_browse_code(project, commit)
+
       - if commit.description?
-        %a.text-expander.js-toggle-button ...
+        %pre.commit-row-description.js-toggle-content
+          = preserve(markdown(commit.description, pipeline: :single_line, author: commit.author))
 
-    .pull-right
-      = link_to commit.short_id, namespace_project_commit_path(project.namespace, project, commit), class: "commit_short_id"
-
-    .notes_count
-      - if @note_counts
-        - note_count = @note_counts.fetch(commit.id, 0)
-      - else
-        - notes = project.notes.for_commit_id(commit.id)
-        - note_count = notes.user.count
-
-      - if note_count > 0
-        %span.light
-          %i.fa.fa-comments
-          = note_count
-
-  - if commit.description?
-    .commit-row-description.js-toggle-content
-      %pre
-        = preserve(gfm(escape_once(commit.description)))
-
-  .commit-row-info
-    = commit_author_link(commit, avatar: true, size: 24)
-    authored
-    .committed_ago
-      #{time_ago_with_tooltip(commit.committed_date)} &nbsp;
-    = link_to_browse_code(project, commit)
+      .commit-row-info
+        = commit_author_link(commit, avatar: false, size: 24)
+        authored
+        #{time_ago_with_tooltip(commit.committed_date)}

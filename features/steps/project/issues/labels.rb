@@ -8,14 +8,14 @@ class Spinach::Features::ProjectIssuesLabels < Spinach::FeatureSteps
   end
 
   step 'I remove label \'bug\'' do
-    within "#label_#{bug_label.id}" do
-      click_link 'Remove'
+    page.within "#label_#{bug_label.id}" do
+      first(:link, 'Delete').click
     end
   end
 
   step 'I delete all labels' do
-    within '.labels' do
-      all('.btn-remove').each do |remove|
+    page.within '.labels' do
+      page.all('.remove-row').each do |remove|
         remove.click
         sleep 0.05
       end
@@ -23,75 +23,75 @@ class Spinach::Features::ProjectIssuesLabels < Spinach::FeatureSteps
   end
 
   step 'I should see labels help message' do
-    within '.labels' do
-      page.should have_content 'Create first label or generate default set of '\
-                               'labels'
+    page.within '.labels' do
+      expect(page).to have_content 'Create a label or generate a default set '\
+                                   'of labels'
     end
   end
 
   step 'I submit new label \'support\'' do
     fill_in 'Title', with: 'support'
-    fill_in 'Background Color', with: '#F95610'
-    click_button 'Save'
+    fill_in 'Background color', with: '#F95610'
+    click_button 'Create Label'
   end
 
   step 'I submit new label \'bug\'' do
     fill_in 'Title', with: 'bug'
-    fill_in 'Background Color', with: '#F95610'
-    click_button 'Save'
+    fill_in 'Background color', with: '#F95610'
+    click_button 'Create Label'
   end
 
   step 'I submit new label with invalid color' do
     fill_in 'Title', with: 'support'
-    fill_in 'Background Color', with: '#12'
-    click_button 'Save'
+    fill_in 'Background color', with: '#12'
+    click_button 'Create Label'
   end
 
   step 'I should see label label exist error message' do
-    within '.label-form' do
-      page.should have_content 'Title has already been taken'
+    page.within '.label-form' do
+      expect(page).to have_content 'Title has already been taken'
     end
   end
 
   step 'I should see label color error message' do
-    within '.label-form' do
-      page.should have_content 'Color is invalid'
+    page.within '.label-form' do
+      expect(page).to have_content 'Color must be a valid color code'
     end
   end
 
   step 'I should see label \'feature\'' do
-    within '.manage-labels-list' do
-      page.should have_content 'feature'
+    page.within '.other-labels .manage-labels-list' do
+      expect(page).to have_content 'feature'
     end
   end
 
   step 'I should see label \'bug\'' do
-    within '.manage-labels-list' do
-      page.should have_content 'bug'
+    page.within '.other-labels .manage-labels-list' do
+      expect(page).to have_content 'bug'
     end
   end
 
   step 'I should not see label \'bug\'' do
-    within '.manage-labels-list' do
-      page.should_not have_content 'bug'
+    page.within '.other-labels .manage-labels-list' do
+      expect(page).not_to have_content 'bug'
     end
   end
 
   step 'I should see label \'support\'' do
-    within '.manage-labels-list' do
-      page.should have_content 'support'
+    page.within '.other-labels .manage-labels-list' do
+      expect(page).to have_content 'support'
     end
   end
 
   step 'I change label \'bug\' to \'fix\'' do
     fill_in 'Title', with: 'fix'
-    fill_in 'Background Color', with: '#F15610'
-    click_button 'Save'
+    fill_in 'Background color', with: '#F15610'
+    click_button 'Save changes'
   end
 
   step 'I should see label \'fix\'' do
-    within '.manage-labels-list' do
-      page.should have_content 'fix'
+    page.within '.other-labels .manage-labels-list' do
+      expect(page).to have_content 'fix'
     end
   end
 

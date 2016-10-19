@@ -1,13 +1,25 @@
+- @no_container = true
+- page_title "Edit", @page.title.capitalize, "Wiki"
 = render 'nav'
-.pull-right
-  = render 'main_links'
-%h3.page-title
-  Editing -
-  %span.light #{@page.title}
-%hr
-= render 'form'
 
-.pull-right
-  - if @page.persisted? && can?(current_user, :admin_wiki, @project)
-    = link_to namespace_project_wiki_path(@project.namespace, @project, @page), data: { confirm: "Are you sure you want to delete this page?"}, method: :delete, class: "btn btn-sm btn-remove" do
-      Delete this page
+%div{ class: container_class }
+  .top-area
+    .nav-text
+      %strong
+        - if @page.persisted?
+          = link_to @page.title.capitalize, namespace_project_wiki_path(@project.namespace, @project, @page)
+        - else
+          = @page.title.capitalize
+      %span.light
+        &middot;
+        Edit Page
+
+    .nav-controls
+      - if !(@page && @page.persisted?)
+        - if can?(current_user, :create_wiki, @project)
+          = link_to '#modal-new-wiki', class: "add-new-wiki btn btn-new", "data-toggle" => "modal" do
+            New Page
+      = render 'main_links'
+
+
+  = render 'form'

@@ -27,8 +27,6 @@ module Gitlab
       def initialize(provider)
         if self.class.valid_provider?(provider)
           @provider = provider
-        elsif provider == 'ldap'
-          @provider = self.class.providers.first
         else
           self.class.invalid_provider(provider)
         end
@@ -82,7 +80,20 @@ module Gitlab
         options['active_directory']
       end
 
+      def block_auto_created_users
+        options['block_auto_created_users']
+      end
+
+      def attributes
+        options['attributes']
+      end
+
+      def timeout
+        options['timeout'].to_i
+      end
+
       protected
+
       def base_config
         Gitlab.config.ldap
       end

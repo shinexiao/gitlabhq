@@ -1,51 +1,62 @@
+require 'task_list'
+require 'task_list/filter'
+
 # Contains functionality for objects that can have task lists in their
 # descriptions.  Task list items can be added with Markdown like "* [x] Fix
 # bugs".
 #
 # Used by MergeRequest and Issue
 module Taskable
-  TASK_PATTERN_MD = /^(?<bullet> *[*-] *)\[(?<checked>[ xX])\]/.freeze
-  TASK_PATTERN_HTML = /^<li>(?<p_tag>\s*<p>)?\[(?<checked>[ xX])\]/.freeze
+  COMPLETED    = 'completed'.freeze
+  INCOMPLETE   = 'incomplete'.freeze
+  ITEM_PATTERN = /
+    ^
+    (?:\s*[-+*]|(?:\d+\.))? # optional list prefix
+    \s*                     # optional whitespace prefix
+    (\[\s\]|\[[xX]\])       # checkbox
+    (\s.+)                  # followed by whitespace and some text.
+  /x
 
-  # Change the state of a task list item for this Taskable.  Edit the object's
-  # description by finding the nth task item and changing its checkbox
-  # placeholder to "[x]" if +checked+ is true, or "[ ]" if it's false.
-  # Note: task numbering starts with 1
-  def update_nth_task(n, checked)
-    index = 0
-    check_char = checked ? 'x' : ' '
-
-    # Do this instead of using #gsub! so that ActiveRecord detects that a field
-    # has changed.
-    self.description = self.description.gsub(TASK_PATTERN_MD) do |match|
-      index += 1
-      case index
-      when n then "#{$LAST_MATCH_INFO[:bullet]}[#{check_char}]"
-      else match
-      end
+  def self.get_tasks(content)
+    content.to_s.scan(ITEM_PATTERN).map do |checkbox, label|
+      # ITEM_PATTERN strips out the hyphen, but Item requires it. Rabble rabble.
+      TaskList::Item.new("- #{checkbox}", label.strip)
     end
+  end
 
-    save
+  def self.get_updated_tasks(old_content:, new_content:)
+    old_tasks, new_tasks = get_tasks(old_content), get_tasks(new_content)
+
+    new_tasks.select.with_index do |new_task, i|
+      old_task = old_tasks[i]
+      next unless old_task
+
+      new_task.source == old_task.source && new_task.complete? != old_task.complete?
+    end
+  end
+
+  # Called by `TaskList::Summary`
+  def task_list_items
+    return [] if description.blank?
+
+    @task_list_items ||= Taskable.get_tasks(description)
+  end
+
+  def tasks
+    @tasks ||= TaskList.new(self)
   end
 
   # Return true if this object's description has any task list items.
   def tasks?
-    description && description.match(TASK_PATTERN_MD)
+    tasks.summary.items?
   end
 
   # Return a string that describes the current state of this Taskable's task
-  # list items, e.g. "20 tasks (12 done, 8 unfinished)"
+  # list items, e.g. "12 of 20 tasks completed"
   def task_status
-    return nil unless description
+    return '' if description.blank?
 
-    num_tasks = 0
-    num_done = 0
-
-    description.scan(TASK_PATTERN_MD) do
-      num_tasks += 1
-      num_done += 1 unless $LAST_MATCH_INFO[:checked] == ' '
-    end
-
-    "#{num_tasks} tasks (#{num_done} done, #{num_tasks - num_done} unfinished)"
+    sum = tasks.summary
+    "#{sum.complete_count} of #{sum.item_count} #{'task'.pluralize(sum.item_count)} completed"
   end
 end

@@ -1,17 +1,6 @@
-# == Schema Information
-#
-# Table name: deploy_keys_projects
-#
-#  id            :integer          not null, primary key
-#  deploy_key_id :integer          not null
-#  project_id    :integer          not null
-#  created_at    :datetime
-#  updated_at    :datetime
-#
-
 require 'spec_helper'
 
-describe DeployKeysProject do
+describe DeployKeysProject, models: true do
   describe "Associations" do
     it { is_expected.to belong_to(:deploy_key) }
     it { is_expected.to belong_to(:project) }
@@ -28,17 +17,28 @@ describe DeployKeysProject do
     let(:deploy_key)  { subject.deploy_key }
 
     context "when the deploy key is only used by this project" do
-      it "destroys the deploy key" do
-        subject.destroy
+      context "when the deploy key is public" do
+        before do
+          deploy_key.update_attribute(:public, true)
+        end
 
-        expect {
-          deploy_key.reload
-        }.to raise_error(ActiveRecord::RecordNotFound)
+        it "doesn't destroy the deploy key" do
+          subject.destroy
+
+          expect { deploy_key.reload }.not_to raise_error
+        end
+      end
+
+      context "when the deploy key is private" do
+        it "destroys the deploy key" do
+          subject.destroy
+
+          expect { deploy_key.reload }.to raise_error(ActiveRecord::RecordNotFound)
+        end
       end
     end
 
     context "when the deploy key is used by more than one project" do
-
       let!(:other_project) { create(:project) }
 
       before do
@@ -48,9 +48,7 @@ describe DeployKeysProject do
       it "doesn't destroy the deploy key" do
         subject.destroy
 
-        expect {
-          deploy_key.reload
-        }.not_to raise_error(ActiveRecord::RecordNotFound)
+        expect { deploy_key.reload }.not_to raise_error
       end
     end
   end

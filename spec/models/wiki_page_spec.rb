@@ -1,6 +1,6 @@
 require "spec_helper"
 
-describe WikiPage do
+describe WikiPage, models: true do
   let(:project) { create(:empty_project) }
   let(:user) { project.owner }
   let(:wiki) { ProjectWiki.new(project, user) }
@@ -43,7 +43,7 @@ describe WikiPage do
 
   describe "validations" do
     before do
-      subject.attributes = {title: 'title', content: 'content'}
+      subject.attributes = { title: 'title', content: 'content' }
     end
 
     it "validates presence of title" do
@@ -58,7 +58,7 @@ describe WikiPage do
   end
 
   before do
-    @wiki_attr = {title: "Index", content: "Home Page", format: "markdown"}
+    @wiki_attr = { title: "Index", content: "Home Page", format: "markdown" }
   end
 
   describe "#create" do
@@ -82,7 +82,7 @@ describe WikiPage do
     let(:title) { 'Index v1.2.3' }
 
     before do
-      @wiki_attr = {title: title, content: "Home Page", format: "markdown"}
+      @wiki_attr = { title: title, content: "Home Page", format: "markdown" }
     end
 
     describe "#create" do
@@ -147,12 +147,12 @@ describe WikiPage do
       @page = wiki.find_page("Delete Page")
     end
 
-    it "should delete the page" do
+    it "deletes the page" do
       @page.delete
       expect(wiki.pages).to be_empty
     end
 
-    it "should return true" do
+    it "returns true" do
       expect(@page.delete).to eq(true)
     end
   end
@@ -183,9 +183,41 @@ describe WikiPage do
       destroy_page("Title")
     end
 
-    it "should be replace a hyphen to a space" do
+    it "replaces a hyphen to a space" do
       @page.title = "Import-existing-repositories-into-GitLab"
       expect(@page.title).to eq("Import existing repositories into GitLab")
+    end
+  end
+
+  describe '#historical?' do
+    before do
+      create_page('Update', 'content')
+      @page = wiki.find_page('Update')
+      3.times { |i| @page.update("content #{i}") }
+    end
+
+    after do
+      destroy_page('Update')
+    end
+
+    it 'returns true when requesting an old version' do
+      old_version = @page.versions.last.to_s
+      old_page = wiki.find_page('Update', old_version)
+
+      expect(old_page.historical?).to eq true
+    end
+
+    it 'returns false when requesting latest version' do
+      latest_version = @page.versions.first.to_s
+      latest_page = wiki.find_page('Update', latest_version)
+
+      expect(latest_page.historical?).to eq false
+    end
+
+    it 'returns false when version is nil' do
+      latest_page = wiki.find_page('Update', nil)
+
+      expect(latest_page.historical?).to eq false
     end
   end
 
@@ -196,7 +228,7 @@ describe WikiPage do
   end
 
   def commit_details
-    commit = {name: user.name, email: user.email, message: "test commit"}
+    { name: user.name, email: user.email, message: "test commit" }
   end
 
   def create_page(name, content)

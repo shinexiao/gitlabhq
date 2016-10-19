@@ -11,9 +11,9 @@ To enable the Google OAuth2 OmniAuth provider you must register your application
     - Project ID: Must be unique to all Google Developer registered applications. Google provides a randomly generated Project ID by default. You can use the randomly generated ID or choose a new one.
 1. Refresh the page. You should now see your new project in the list. Click on the project.
 
-1. Select "APIs & auth" in the left menu.
+1. Select the "Google APIs" tab in the Overview.
 
-1. Select "APIs" in the submenu.
+1. Select and enable the following Google APIs - listed under "Popular APIs"
     - Enable `Contacts API`
     - Enable `Google+ API`
 
@@ -25,7 +25,7 @@ To enable the Google OAuth2 OmniAuth provider you must register your application
     - Application type: "Web Application"
     - Authorized JavaScript origins: This isn't really used by GitLab but go ahead and put 'https://gitlab.example.com' here.
     - Authorized redirect URI: 'https://gitlab.example.com/users/auth/google_oauth2/callback'
-1. Under the heading "Client ID for web application" you should see a Client ID and Client secret (see screenshot). Keep this page open as you continue configuration. ![Google app](google_app.png)
+1. Under the heading "Client ID for web application" you should see a Client ID and Client secret (see screenshot). Keep this page open as you continue configuration. ![Google app](img/google_app.png)
 
 1.  On your GitLab server, open the configuration file.
 
@@ -35,7 +35,7 @@ To enable the Google OAuth2 OmniAuth provider you must register your application
       sudo editor /etc/gitlab/gitlab.rb
     ```
 
-    For instalations from source:
+    For installations from source:
 
     ```sh
       cd /home/git/gitlab

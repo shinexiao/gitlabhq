@@ -1,0 +1,138 @@
+textarea {
+  resize: vertical;
+}
+
+input {
+  border-radius: $border-radius-base;
+}
+
+input[type='text'].danger {
+  background: #f2dede!important;
+  border-color: #d66;
+  text-shadow: 0 1px 1px #fff;
+}
+
+.datetime-controls {
+  select {
+    width: 100px;
+  }
+}
+
+.form-actions {
+  margin-top: 0;
+  margin-bottom: -$gl-padding;
+  padding: $gl-padding;
+  background-color: $background-color;
+  border-top: 1px solid $border-color;
+}
+
+label {
+  &.inline-label {
+    margin: 0;
+  }
+
+  &.label-light {
+    font-weight: 600;
+  }
+}
+
+.control-label {
+  @extend .col-sm-2;
+}
+
+.inline-input-group {
+  width: 250px;
+}
+
+.custom-form-control {
+  width: 150px;
+}
+
+@media (min-width: $screen-sm-min) {
+  .custom-form-control {
+    width: 150px;
+  }
+}
+
+/* Medium devices (desktops, 992px and up) */
+@media (min-width: $screen-md-min) {
+  .custom-form-control {
+    width: 170px;
+  }
+}
+
+/* Large devices (large desktops, 1200px and up) */
+@media (min-width: $screen-lg-min) {
+  .custom-form-control {
+    width: 200px;
+  }
+}
+
+.fieldset-form fieldset {
+  margin-bottom: 20px;
+}
+
+.form-control {
+  @include box-shadow(none);
+  border-radius: 2px;
+  padding: $gl-vert-padding $gl-input-padding;
+}
+
+.select-wrapper {
+  position: relative;
+
+  .fa-caret-down {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    color: $gray-darkest;
+    pointer-events: none;
+  }
+}
+
+.select-control {
+  padding-left: 10px;
+  padding-right: 10px;
+  -webkit-appearance: none;
+}
+
+.form-control-inline {
+  display: inline;
+}
+
+.wiki-content {
+  margin-top: 35px;
+}
+
+.form-group .control-label {
+  font-weight: normal;
+}
+
+.form-control::-webkit-input-placeholder {
+  color: $gl-placeholder-color;
+}
+
+.input-group {
+  .select2-container {
+    display: table-cell;
+    width: 200px !important;
+  }
+
+  .input-group-addon {
+    background-color: #f7f8fa;
+  }
+
+  .input-group-addon:not(:first-child):not(:last-child) {
+    border-left: 0;
+    border-right: 0;
+  }
+}
+
+.help-block {
+  margin-bottom: 0;
+}
+
+.gl-field-error {
+  color: $red-normal;
+}
+

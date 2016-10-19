@@ -1,10 +1,8 @@
-class Groups::AvatarsController < ApplicationController
-  layout "profile"
+class Groups::AvatarsController < Groups::ApplicationController
+  before_action :authorize_admin_group!
 
   def destroy
-    @group = Group.find_by(path: params[:group_id])
     @group.remove_avatar!
-
     @group.save
 
     redirect_to edit_group_path(@group)

@@ -1,38 +1,35 @@
 module Gitlab
   class ContributionsCalendar
-    attr_reader :timestamps, :projects, :user
+    attr_reader :activity_dates, :projects, :user
 
     def initialize(projects, user)
       @projects = projects
       @user = user
     end
 
-    def timestamps
-      return @timestamps if @timestamps.present?
+    def activity_dates
+      return @activity_dates if @activity_dates.present?
 
-      @timestamps = {}
+      @activity_dates = {}
       date_from = 1.year.ago
-      date_to = Date.today
 
       events = Event.reorder(nil).contributions.where(author_id: user.id).
         where("created_at > ?", date_from).where(project_id: projects).
         group('date(created_at)').
-        select('date(created_at), count(id) as total_amount').
+        select('date(created_at) as date, count(id) as total_amount').
         map(&:attributes)
 
-      dates = (1.year.ago.to_date..(Date.today + 1.day)).to_a
+      activity_dates = (1.year.ago.to_date..Date.today).to_a
 
-      dates.each do |date|
-        date_id = date.to_time.to_i.to_s
-        @timestamps[date_id] = 0
+      activity_dates.each do |date|
         day_events = events.find { |day_events| day_events["date"] == date }
 
         if day_events
-          @timestamps[date_id] = day_events["total_amount"]
+          @activity_dates[date] = day_events["total_amount"]
         end
       end
 
-      @timestamps
+      @activity_dates
     end
 
     def events_by_date(date)
@@ -46,11 +43,11 @@ module Gitlab
     end
 
     def starting_year
-      (Time.now - 1.year).strftime("%Y")
+      1.year.ago.year
     end
 
     def starting_month
-      Date.today.strftime("%m").to_i
+      Date.today.month
     end
   end
 end

@@ -2,57 +2,45 @@ class Spinach::Features::ProjectIssuesFilterLabels < Spinach::FeatureSteps
   include SharedAuthentication
   include SharedProject
   include SharedPaths
-
-  step 'I should see "bug" in labels filter' do
-    within ".labels-filter" do
-      page.should have_content "bug"
-    end
-  end
-
-  step 'I should see "feature" in labels filter' do
-    within ".labels-filter" do
-      page.should have_content "feature"
-    end
-  end
-
-  step 'I should see "enhancement" in labels filter' do
-    within ".labels-filter" do
-      page.should have_content "enhancement"
-    end
-  end
+  include Select2Helper
 
   step 'I should see "Bugfix1" in issues list' do
-    within ".issues-list" do
-      page.should have_content "Bugfix1"
+    page.within ".issues-list" do
+      expect(page).to have_content "Bugfix1"
     end
   end
 
   step 'I should see "Bugfix2" in issues list' do
-    within ".issues-list" do
-      page.should have_content "Bugfix2"
+    page.within ".issues-list" do
+      expect(page).to have_content "Bugfix2"
     end
   end
 
   step 'I should not see "Bugfix2" in issues list' do
-    within ".issues-list" do
-      page.should_not have_content "Bugfix2"
+    page.within ".issues-list" do
+      expect(page).not_to have_content "Bugfix2"
     end
   end
 
   step 'I should not see "Feature1" in issues list' do
-    within ".issues-list" do
-      page.should_not have_content "Feature1"
+    page.within ".issues-list" do
+      expect(page).not_to have_content "Feature1"
     end
   end
 
   step 'I click link "bug"' do
-    within ".labels-filter" do
-      click_link "bug"
-    end
+    page.find('.js-label-select', visible: true).click
+    sleep 0.5
+    execute_script("$('.dropdown-menu-labels li:contains(\"bug\") a').click()")
+  end
+
+  step 'I click "dropdown close button"' do
+    page.first('.labels-filter .dropdown-title .dropdown-menu-close-icon').click
+    sleep 2
   end
 
   step 'I click link "feature"' do
-    within ".labels-filter" do
+    page.within ".labels-filter" do
       click_link "feature"
     end
   end

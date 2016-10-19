@@ -1,14 +1,26 @@
-%h3.page-title
-  Issues
+- page_title "Issues"
+= content_for :meta_tags do
+  - if current_user
+    = auto_discovery_link_tag(:atom, issues_group_url(@group, format: :atom, private_token: current_user.private_token), title: "#{@group.name} issues")
 
-%p.light
+.top-area
+  = render 'shared/issuable/nav', type: :issues
+  .nav-controls
+    - if current_user
+      = link_to issues_group_url(@group, format: :atom, private_token: current_user.private_token), class: 'btn' do
+        = icon('rss')
+        %span.icon-label
+          Subscribe
+    = render 'shared/new_project_item_select', path: 'issues/new', label: "New Issue"
+
+= render 'shared/issuable/filter', type: :issues
+
+.row-content-block.second-block
   Only issues from
   %strong #{@group.name}
   group are listed here.
   - if current_user
     To see all issues you should visit #{link_to 'dashboard', issues_dashboard_path} page.
-%hr
 
-.append-bottom-20
-  = render 'shared/issuable_filter'
-= render 'shared/issues'
+.prepend-top-default
+  = render 'shared/issues'

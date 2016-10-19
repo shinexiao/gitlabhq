@@ -16,33 +16,31 @@ class Spinach::Features::ProjectActiveTab < Spinach::FeatureSteps
   end
 
   step 'I click the "Snippets" tab' do
-    click_link('Snippets')
+    page.within('.layout-nav') do
+      click_link('Snippets')
+    end
   end
 
-  step 'I click the "Edit" tab' do
-    within '.project-settings-nav' do
-      click_link('Project')
+  step 'I click the "Edit Project"' do
+    page.within '.layout-nav .controls' do
+      click_link('Edit Project')
     end
   end
 
   step 'I click the "Hooks" tab' do
-    click_link('Web Hooks')
+    click_link('Webhooks')
   end
 
   step 'I click the "Deploy Keys" tab' do
     click_link('Deploy Keys')
   end
 
-  step 'the active sub nav should be Team' do
+  step 'the active sub nav should be Members' do
     ensure_active_sub_nav('Members')
   end
 
-  step 'the active sub nav should be Edit' do
-    ensure_active_sub_nav('Project')
-  end
-
   step 'the active sub nav should be Hooks' do
-    ensure_active_sub_nav('Web Hooks')
+    ensure_active_sub_nav('Webhooks')
   end
 
   step 'the active sub nav should be Deploy Keys' do
@@ -56,15 +54,13 @@ class Spinach::Features::ProjectActiveTab < Spinach::FeatureSteps
   end
 
   step 'I click the "Branches" tab' do
-    click_link('Branches')
+    page.within '.sub-nav' do
+      click_link('Branches')
+    end
   end
 
   step 'I click the "Tags" tab' do
     click_link('Tags')
-  end
-
-  step 'the active sub tab should be Commits' do
-    ensure_active_sub_tab('Commits')
   end
 
   step 'the active sub tab should be Compare' do
@@ -81,23 +77,27 @@ class Spinach::Features::ProjectActiveTab < Spinach::FeatureSteps
 
   # Sub Tabs: Issues
 
-  step 'I click the "Milestones" tab' do
-    click_link('Milestones')
+  step 'I click the "Milestones" sub tab' do
+    page.within('.sub-nav') do
+      click_link('Milestones')
+    end
   end
 
-  step 'I click the "Labels" tab' do
-    click_link('Labels')
+  step 'I click the "Labels" sub tab' do
+    page.within('.sub-nav') do
+      click_link('Labels')
+    end
   end
 
   step 'the active sub tab should be Issues' do
     ensure_active_sub_tab('Issues')
   end
 
-  step 'the active main tab should be Milestones' do
-    ensure_active_main_tab('Milestones')
+  step 'the active sub tab should be Milestones' do
+    ensure_active_sub_tab('Milestones')
   end
 
-  step 'the active main tab should be Labels' do
-    ensure_active_main_tab('Labels')
+  step 'the active sub tab should be Labels' do
+    ensure_active_sub_tab('Labels')
   end
 end

@@ -1,29 +1,37 @@
-.pull-right
-  %div
-    - if @notes_count > 0
-      %span.btn.disabled.btn-grouped
-        %i.fa.fa-comment
-        = @notes_count
-    .pull-left.btn-group
-      %a.btn.btn-grouped.dropdown-toggle{ data: {toggle: :dropdown} }
-        %i.fa.fa-download
-        Download as
-        %span.caret
-      %ul.dropdown-menu
-        %li= link_to "Email Patches", namespace_project_commit_path(@project.namespace, @project, @commit, format: :patch)
-        %li= link_to "Plain Diff",    namespace_project_commit_path(@project.namespace, @project, @commit, format: :diff)
-    = link_to namespace_project_tree_path(@project.namespace, @project, @commit), class: "btn btn-primary btn-grouped" do
-      %span Browse Code »
-  %div
-
-%p
-  %span.light Commit
-  = link_to @commit.id, namespace_project_commit_path(@project.namespace, @project, @commit)
-.commit-info-row
-  %span.light Authored by
+.commit-info-row.commit-info-row-header
+  %span.hidden-xs Authored by
   %strong
     = commit_author_link(@commit, avatar: true, size: 24)
   #{time_ago_with_tooltip(@commit.authored_date)}
+
+  .pull-right.commit-action-buttons
+    - if defined?(@notes_count) && @notes_count > 0
+      %span.btn.disabled.btn-grouped.hidden-xs.append-right-10
+        = icon('comment')
+        = @notes_count
+    = link_to namespace_project_tree_path(@project.namespace, @project, @commit), class: "btn btn-default append-right-10 hidden-xs hidden-sm" do
+      Browse Files
+    .dropdown.inline
+      %a.btn.btn-default.dropdown-toggle{ data: { toggle: "dropdown" } }
+        %span.hidden-xs Options
+        = icon('caret-down', class: ".commit-options-dropdown-caret")
+      %ul.dropdown-menu.dropdown-menu-align-right
+        %li.visible-xs-block.visible-sm-block
+          = link_to namespace_project_tree_path(@project.namespace, @project, @commit) do
+            Browse Files
+        - unless @commit.has_been_reverted?(current_user)
+          %li.clearfix
+            = revert_commit_link(@commit, namespace_project_commit_path(@project.namespace, @project, @commit.id), has_tooltip: false)
+        %li.clearfix
+          = cherry_pick_commit_link(@commit, namespace_project_commit_path(@project.namespace, @project, @commit.id), has_tooltip: false)
+        %li.clearfix
+          = link_to "Tag", new_namespace_project_tag_path(@project.namespace, @project, ref: @commit)
+        %li.divider
+        %li.dropdown-header
+          Download
+        - unless @commit.parents.length > 1
+          %li= link_to "Email Patches", namespace_project_commit_path(@project.namespace, @project, @commit, format: :patch)
+        %li= link_to "Plain Diff",    namespace_project_commit_path(@project.namespace, @project, @commit, format: :diff)
 
 - if @commit.different_committer?
   .commit-info-row
@@ -33,19 +41,34 @@
     #{time_ago_with_tooltip(@commit.committed_date)}
 
 .commit-info-row
+  %span.hidden-xs.hidden-sm Commit
+  = link_to @commit.id, namespace_project_commit_path(@project.namespace, @project, @commit), class: "monospace hidden-xs hidden-sm"
+  = link_to @commit.short_id, namespace_project_commit_path(@project.namespace, @project, @commit), class: "monospace visible-xs-inline visible-sm-inline"
+  = clipboard_button(clipboard_text: @commit.id)
   %span.cgray= pluralize(@commit.parents.count, "parent")
   - @commit.parents.each do |parent|
-    = link_to parent.short_id, namespace_project_commit_path(@project.namespace, @project, parent)
+    = link_to parent.short_id, namespace_project_commit_path(@project.namespace, @project, parent), class: "monospace"
 
-.commit-info-row.branches
-  %i.fa.fa-spinner.fa-spin
+  %span.commit-info.branches
+    %i.fa.fa-spinner.fa-spin
 
-.commit-box
+- if @commit.status
+  .commit-info-row
+    Builds for
+    = pluralize(@commit.pipelines.count, 'pipeline')
+    = link_to builds_namespace_project_commit_path(@project.namespace, @project, @commit.id), class: "ci-status-link ci-status-icon-#{@commit.status}" do
+      = ci_icon_for_status(@commit.status)
+      %span.ci-status-label
+        = ci_label_for_status(@commit.status)
+    in
+    = time_interval_in_words @commit.pipelines.total_duration
+
+.commit-box.content-block
   %h3.commit-title
-    = gfm escape_once(@commit.title)
+    = markdown(@commit.title, pipeline: :single_line, author: @commit.author)
   - if @commit.description.present?
     %pre.commit-description
-      = preserve(gfm(escape_once(@commit.description)))
+      = preserve(markdown(@commit.description, pipeline: :single_line, author: @commit.author))
 
-:coffeescript
-  $(".commit-info-row.branches").load("#{branches_namespace_project_commit_path(@project.namespace, @project, @commit.id)}")
+:javascript
+  $(".commit-info.branches").load("#{branches_namespace_project_commit_path(@project.namespace, @project, @commit.id)}");

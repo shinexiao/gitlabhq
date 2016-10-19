@@ -1,37 +1,26 @@
-# == Schema Information
-#
-# Table name: services
-#
-#  id                    :integer          not null, primary key
-#  type                  :string(255)
-#  title                 :string(255)
-#  project_id            :integer
-#  created_at            :datetime
-#  updated_at            :datetime
-#  active                :boolean          default(FALSE), not null
-#  properties            :text
-#  template              :boolean          default(FALSE)
-#  push_events           :boolean          default(TRUE)
-#  issues_events         :boolean          default(TRUE)
-#  merge_requests_events :boolean          default(TRUE)
-#  tag_push_events       :boolean          default(TRUE)
-#  note_events           :boolean          default(TRUE), not null
-#
-
 class IssueTrackerService < Service
+  validates :project_url, :issues_url, :new_issue_url, presence: true, url: true, if: :activated?
 
-  validates :project_url, :issues_url, :new_issue_url, presence: true, if: :activated?
-
-  def category
-    :issue_tracker
-  end
+  default_value_for :category, 'issue_tracker'
 
   def default?
-    false
+    default
   end
 
   def issue_url(iid)
     self.issues_url.gsub(':id', iid.to_s)
+  end
+
+  def project_path
+    project_url
+  end
+
+  def new_issue_path
+    new_issue_url
+  end
+
+  def issue_path(iid)
+    issue_url(iid)
   end
 
   def fields
@@ -48,9 +37,9 @@ class IssueTrackerService < Service
       if enabled_in_gitlab_config
         self.properties = {
           title: issues_tracker['title'],
-          project_url: add_issues_tracker_id(issues_tracker['project_url']),
-          issues_url: add_issues_tracker_id(issues_tracker['issues_url']),
-          new_issue_url: add_issues_tracker_id(issues_tracker['new_issue_url'])
+          project_url: issues_tracker['project_url'],
+          issues_url: issues_tracker['issues_url'],
+          new_issue_url: issues_tracker['new_issue_url']
         }
       else
         self.properties = {}
@@ -69,18 +58,13 @@ class IssueTrackerService < Service
     result = false
 
     begin
-      url = URI.parse(self.project_url)
+      response = HTTParty.head(self.project_url, verify: true)
 
-      if url.host && url.port
-        http = Net::HTTP.start(url.host, url.port, { open_timeout: 5, read_timeout: 5 })
-        response = http.head("/")
-
-        if response
-          message = "#{self.type} received response #{response.code} when attempting to connect to #{self.project_url}"
-          result = true
-        end
+      if response
+        message = "#{self.type} received response #{response.code} when attempting to connect to #{self.project_url}"
+        result = true
       end
-    rescue Timeout::Error, SocketError, Errno::ECONNRESET, Errno::ECONNREFUSED => error
+    rescue HTTParty::Error, Timeout::Error, SocketError, Errno::ECONNRESET, Errno::ECONNREFUSED => error
       message = "#{self.type} had an error when trying to connect to #{self.project_url}: #{error.message}"
     end
     Rails.logger.info(message)
@@ -97,17 +81,5 @@ class IssueTrackerService < Service
 
   def issues_tracker
     Gitlab.config.issues_tracker[to_param]
-  end
-
-  def add_issues_tracker_id(url)
-    if self.project
-      id = self.project.issues_tracker_id
-
-      if id
-        url = url.gsub(":issues_tracker_id", id)
-      end
-    end
-
-    url
   end
 end

@@ -1,5 +1,44 @@
 require 'spec_helper'
 
+# user                       GET    /u/:username/
+# user_groups                GET    /u/:username/groups(.:format)
+# user_projects              GET    /u/:username/projects(.:format)
+# user_contributed_projects  GET    /u/:username/contributed(.:format)
+# user_snippets              GET    /u/:username/snippets(.:format)
+# user_calendar              GET    /u/:username/calendar(.:format)
+# user_calendar_activities   GET    /u/:username/calendar_activities(.:format)
+describe UsersController, "routing" do
+  it "to #show" do
+    allow(User).to receive(:find_by).and_return(true)
+
+    expect(get("/User")).to route_to('users#show', username: 'User')
+  end
+
+  it "to #groups" do
+    expect(get("/users/User/groups")).to route_to('users#groups', username: 'User')
+  end
+
+  it "to #projects" do
+    expect(get("/users/User/projects")).to route_to('users#projects', username: 'User')
+  end
+
+  it "to #contributed" do
+    expect(get("/users/User/contributed")).to route_to('users#contributed', username: 'User')
+  end
+
+  it "to #snippets" do
+    expect(get("/users/User/snippets")).to route_to('users#snippets', username: 'User')
+  end
+
+  it "to #calendar" do
+    expect(get("/users/User/calendar")).to route_to('users#calendar', username: 'User')
+  end
+
+  it "to #calendar_activities" do
+    expect(get("/users/User/calendar_activities")).to route_to('users#calendar_activities', username: 'User')
+  end
+end
+
 # search GET    /search(.:format) search#show
 describe SearchController, "routing" do
   it "to #show" do
@@ -27,10 +66,6 @@ end
 #          PUT    /snippets/:id(.:format)      snippets#update
 #          DELETE /snippets/:id(.:format)      snippets#destroy
 describe SnippetsController, "routing" do
-  it "to #user_index" do
-    expect(get("/s/User")).to route_to('snippets#user_index', username: 'User')
-  end
-
   it "to #raw" do
     expect(get("/snippets/1/raw")).to route_to('snippets#raw', id: '1')
   end
@@ -64,50 +99,35 @@ describe SnippetsController, "routing" do
   end
 end
 
-#              help GET    /help(.:format)              help#index
-#  help_permissions GET    /help/permissions(.:format)  help#permissions
-#     help_workflow GET    /help/workflow(.:format)     help#workflow
-#          help_api GET    /help/api(.:format)          help#api
-#    help_web_hooks GET    /help/web_hooks(.:format)    help#web_hooks
-# help_system_hooks GET    /help/system_hooks(.:format) help#system_hooks
-#     help_markdown GET    /help/markdown(.:format)     help#markdown
-#          help_ssh GET    /help/ssh(.:format)          help#ssh
-#    help_raketasks GET    /help/raketasks(.:format)    help#raketasks
+#            help GET /help(.:format)                 help#index
+#       help_page GET /help/*path(.:format)           help#show
+#  help_shortcuts GET /help/shortcuts(.:format)       help#shortcuts
+#         help_ui GET /help/ui(.:format)              help#ui
 describe HelpController, "routing" do
   it "to #index" do
     expect(get("/help")).to route_to('help#index')
   end
 
-  it "to #permissions" do
-    expect(get("/help/permissions/permissions")).to route_to('help#show', category: "permissions", file: "permissions")
-  end
+  it 'to #show' do
+    path = '/help/user/markdown.md'
+    expect(get(path)).to route_to('help#show',
+                                  path: 'user/markdown',
+                                  format: 'md')
 
-  it "to #workflow" do
-    expect(get("/help/workflow/README")).to route_to('help#show', category: "workflow", file: "README")
-  end
+    path = '/help/workflow/protected_branches/protected_branches1.png'
+    expect(get(path)).to route_to('help#show',
+                                  path: 'workflow/protected_branches/protected_branches1',
+                                  format: 'png')
 
-  it "to #api" do
-    expect(get("/help/api/README")).to route_to('help#show', category: "api", file: "README")
+    path = '/help/ui'
+    expect(get(path)).to route_to('help#ui')
   end
+end
 
-  it "to #web_hooks" do
-    expect(get("/help/web_hooks/web_hooks")).to route_to('help#show', category: "web_hooks", file: "web_hooks")
-  end
-
-  it "to #system_hooks" do
-    expect(get("/help/system_hooks/system_hooks")).to route_to('help#show', category: "system_hooks", file: "system_hooks")
-  end
-
-  it "to #markdown" do
-    expect(get("/help/markdown/markdown")).to route_to('help#show',category: "markdown", file: "markdown")
-  end
-
-  it "to #ssh" do
-    expect(get("/help/ssh/README")).to route_to('help#show', category: "ssh", file: "README")
-  end
-
-  it "to #raketasks" do
-    expect(get("/help/raketasks/README")).to route_to('help#show', category: "raketasks", file: "README")
+#                      koding GET    /koding(.:format)                      koding#index
+describe KodingController, "routing" do
+  it "to #index" do
+    expect(get("/koding")).to route_to('koding#index')
   end
 end
 
@@ -117,15 +137,14 @@ end
 #               profile_token GET    /profile/token(.:format)               profile#token
 # profile_reset_private_token PUT    /profile/reset_private_token(.:format) profile#reset_private_token
 #                     profile GET    /profile(.:format)                     profile#show
-#              profile_design GET    /profile/design(.:format)              profile#design
 #              profile_update PUT    /profile/update(.:format)              profile#update
 describe ProfilesController, "routing" do
   it "to #account" do
     expect(get("/profile/account")).to route_to('profiles/accounts#show')
   end
 
-  it "to #history" do
-    expect(get("/profile/history")).to route_to('profiles#history')
+  it "to #audit_log" do
+    expect(get("/profile/audit_log")).to route_to('profiles#audit_log')
   end
 
   it "to #reset_private_token" do
@@ -135,15 +154,24 @@ describe ProfilesController, "routing" do
   it "to #show" do
     expect(get("/profile")).to route_to('profiles#show')
   end
+end
 
-  it "to #design" do
-    expect(get("/profile/design")).to route_to('profiles#design')
+# profile_preferences GET      /profile/preferences(.:format) profiles/preferences#show
+#                     PATCH    /profile/preferences(.:format) profiles/preferences#update
+#                     PUT      /profile/preferences(.:format) profiles/preferences#update
+describe Profiles::PreferencesController, 'routing' do
+  it 'to #show' do
+    expect(get('/profile/preferences')).to route_to('profiles/preferences#show')
+  end
+
+  it 'to #update' do
+    expect(put('/profile/preferences')).to   route_to('profiles/preferences#update')
+    expect(patch('/profile/preferences')).to route_to('profiles/preferences#update')
   end
 end
 
 #     keys GET    /keys(.:format)          keys#index
 #          POST   /keys(.:format)          keys#create
-#  new_key GET    /keys/new(.:format)      keys#new
 # edit_key GET    /keys/:id/edit(.:format) keys#edit
 #      key GET    /keys/:id(.:format)      keys#show
 #          PUT    /keys/:id(.:format)      keys#update
@@ -157,20 +185,8 @@ describe Profiles::KeysController, "routing" do
     expect(post("/profile/keys")).to route_to('profiles/keys#create')
   end
 
-  it "to #new" do
-    expect(get("/profile/keys/new")).to route_to('profiles/keys#new')
-  end
-
-  it "to #edit" do
-    expect(get("/profile/keys/1/edit")).to route_to('profiles/keys#edit', id: '1')
-  end
-
   it "to #show" do
     expect(get("/profile/keys/1")).to route_to('profiles/keys#show', id: '1')
-  end
-
-  it "to #update" do
-    expect(put("/profile/keys/1")).to route_to('profiles/keys#update', id: '1')
   end
 
   it "to #destroy" do
@@ -210,11 +226,9 @@ end
 #                dashboard GET    /dashboard(.:format)                dashboard#show
 #         dashboard_issues GET    /dashboard/issues(.:format)         dashboard#issues
 # dashboard_merge_requests GET    /dashboard/merge_requests(.:format) dashboard#merge_requests
-#                     root        /                                   dashboard#show
 describe DashboardController, "routing" do
   it "to #index" do
-    expect(get("/dashboard")).to route_to('dashboard#show')
-    expect(get("/")).to route_to('dashboard#show')
+    expect(get("/dashboard")).to route_to('dashboard/projects#index')
   end
 
   it "to #issues" do
@@ -223,6 +237,13 @@ describe DashboardController, "routing" do
 
   it "to #merge_requests" do
     expect(get("/dashboard/merge_requests")).to route_to('dashboard#merge_requests')
+  end
+end
+
+#                     root        /                                   root#show
+describe RootController, 'routing' do
+  it 'to #index' do
+    expect(get('/')).to route_to('root#index')
   end
 end
 
@@ -245,7 +266,24 @@ describe "Groups", "routing" do
   end
 
   it "also display group#show on the short path" do
-    expect(get('/1')).to route_to('namespaces#show', id: '1')
+    allow(Group).to receive(:find_by_path).and_return(true)
+
+    expect(get('/1')).to route_to('groups#show', id: '1')
+  end
+
+  it "also display group#show with dot in the path" do
+    allow(Group).to receive(:find_by_path).and_return(true)
+
+    expect(get('/group.with.dot')).to route_to('groups#show', id: 'group.with.dot')
   end
 end
 
+describe HealthCheckController, 'routing' do
+  it 'to #index' do
+    expect(get('/health_check')).to route_to('health_check#index')
+  end
+
+  it 'also supports passing checks in the url' do
+    expect(get('/health_check/email')).to route_to('health_check#index', checks: 'email')
+  end
+end

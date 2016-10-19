@@ -26,16 +26,16 @@ describe UploadsController do
           it "responds with status 200" do
             get :show, model: "user", mounted_as: "avatar", id: user.id, filename: "image.png"
 
-            expect(response.status).to eq(200)
+            expect(response).to have_http_status(200)
           end
         end
       end
-      
+
       context "when not signed in" do
         it "responds with status 200" do
           get :show, model: "user", mounted_as: "avatar", id: user.id, filename: "image.png"
 
-          expect(response.status).to eq(200)
+          expect(response).to have_http_status(200)
         end
       end
     end
@@ -52,7 +52,7 @@ describe UploadsController do
           it "responds with status 200" do
             get :show, model: "project", mounted_as: "avatar", id: project.id, filename: "image.png"
 
-            expect(response.status).to eq(200)
+            expect(response).to have_http_status(200)
           end
         end
 
@@ -64,7 +64,7 @@ describe UploadsController do
           it "responds with status 200" do
             get :show, model: "project", mounted_as: "avatar", id: project.id, filename: "image.png"
 
-            expect(response.status).to eq(200)
+            expect(response).to have_http_status(200)
           end
         end
       end
@@ -109,7 +109,7 @@ describe UploadsController do
               it "responds with status 200" do
                 get :show, model: "project", mounted_as: "avatar", id: project.id, filename: "image.png"
 
-                expect(response.status).to eq(200)
+                expect(response).to have_http_status(200)
               end
             end
           end
@@ -118,7 +118,7 @@ describe UploadsController do
             it "responds with status 404" do
               get :show, model: "project", mounted_as: "avatar", id: project.id, filename: "image.png"
 
-              expect(response.status).to eq(404)
+              expect(response).to have_http_status(404)
             end
           end
         end
@@ -126,19 +126,14 @@ describe UploadsController do
     end
 
     context "when viewing a group avatar" do
-      let!(:group) { create(:group, avatar: fixture_file_upload(Rails.root + "spec/fixtures/dk.png", "image/png")) }
-      let!(:project) { create(:project, namespace: group) }
+      let!(:group)   { create(:group, avatar: fixture_file_upload(Rails.root + "spec/fixtures/dk.png", "image/png")) }
 
-      context "when the group has public projects" do
-        before do
-          project.update_attribute(:visibility_level, Project::PUBLIC)
-        end
-
+      context "when the group is public" do
         context "when not signed in" do
           it "responds with status 200" do
             get :show, model: "group", mounted_as: "avatar", id: group.id, filename: "image.png"
 
-            expect(response.status).to eq(200)
+            expect(response).to have_http_status(200)
           end
         end
 
@@ -150,18 +145,14 @@ describe UploadsController do
           it "responds with status 200" do
             get :show, model: "group", mounted_as: "avatar", id: group.id, filename: "image.png"
 
-            expect(response.status).to eq(200)
+            expect(response).to have_http_status(200)
           end
         end
       end
 
-      context "when the project doesn't have public projects" do
-        context "when not signed in" do
-          it "redirects to the sign in page" do
-            get :show, model: "group", mounted_as: "avatar", id: group.id, filename: "image.png"
-
-            expect(response).to redirect_to(new_user_session_path)
-          end
+      context "when the group is private" do
+        before do
+          group.update_attribute(:visibility_level, Gitlab::VisibilityLevel::PRIVATE)
         end
 
         context "when signed in" do
@@ -171,13 +162,12 @@ describe UploadsController do
 
           context "when the user has access to the project" do
             before do
-              project.team << [user, :master]
+              group.add_developer(user)
             end
 
             context "when the user is blocked" do
               before do
                 user.block
-                project.team << [user, :master]
               end
 
               it "redirects to the sign in page" do
@@ -191,7 +181,7 @@ describe UploadsController do
               it "responds with status 200" do
                 get :show, model: "group", mounted_as: "avatar", id: group.id, filename: "image.png"
 
-                expect(response.status).to eq(200)
+                expect(response).to have_http_status(200)
               end
             end
           end
@@ -200,7 +190,7 @@ describe UploadsController do
             it "responds with status 404" do
               get :show, model: "group", mounted_as: "avatar", id: group.id, filename: "image.png"
 
-              expect(response.status).to eq(404)
+              expect(response).to have_http_status(404)
             end
           end
         end
@@ -220,7 +210,7 @@ describe UploadsController do
           it "responds with status 200" do
             get :show, model: "note", mounted_as: "attachment", id: note.id, filename: "image.png"
 
-            expect(response.status).to eq(200)
+            expect(response).to have_http_status(200)
           end
         end
 
@@ -232,7 +222,7 @@ describe UploadsController do
           it "responds with status 200" do
             get :show, model: "note", mounted_as: "attachment", id: note.id, filename: "image.png"
 
-            expect(response.status).to eq(200)
+            expect(response).to have_http_status(200)
           end
         end
       end
@@ -277,7 +267,7 @@ describe UploadsController do
               it "responds with status 200" do
                 get :show, model: "note", mounted_as: "attachment", id: note.id, filename: "image.png"
 
-                expect(response.status).to eq(200)
+                expect(response).to have_http_status(200)
               end
             end
           end
@@ -286,7 +276,7 @@ describe UploadsController do
             it "responds with status 404" do
               get :show, model: "note", mounted_as: "attachment", id: note.id, filename: "image.png"
 
-              expect(response.status).to eq(404)
+              expect(response).to have_http_status(404)
             end
           end
         end

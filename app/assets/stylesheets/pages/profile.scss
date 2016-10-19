@@ -1,81 +1,26 @@
-.account-page {
-  fieldset {
-    margin-bottom: 15px;
-    padding-bottom: 15px;
-  }
-}
-
-.btn-build-token {
-  float: left;
-  padding: 6px 20px;
-  margin-right: 12px;
-}
-
 .profile-avatar-form-option {
   hr {
     margin: 10px 0;
   }
 }
 
-/*
- * Appearance settings
- *
- */
-.themes_opts {
-  label {
-    margin-right: 20px;
-    text-align: center;
-
-    .prev {
-      height: 80px;
-      width: 160px;
-      margin-bottom: 10px;
-      @include border-radius(4px);
-
-      &.classic {
-        background: #31363e;
-      }
-
-      &.default {
-        background: #f1f1f1;
-      }
-
-      &.modern {
-        background: #009871;
-      }
-
-      &.gray {
-        background: #373737;
-      }
-
-      &.violet {
-        background: #548;
-      }
-
-      &.blue {
-        background: #2980b9;
-      }
-    }
+.avatar-image {
+  @media (min-width: $screen-sm-min) {
+    float: left;
+    margin-bottom: 0;
   }
 }
 
-.code_highlight_opts {
-  margin-top: 10px;
+.avatar-file-name {
+  position: relative;
+  top: 2px;
+  display: inline-block;
+}
 
-  label {
-    margin-right: 20px;
-    text-align: center;
-
-    .prev {
-      width: 160px;
-      margin-bottom: 10px;
-
-      img {
-        max-width: 100%;
-        @include border-radius(4px);
-      }
-    }
-  }
+.account-btn-link,
+.profile-settings-sidebar a,
+.settings-sidebar a {
+  color: $md-link-color;
 }
 
 .oauth-buttons {
@@ -84,12 +29,231 @@
   }
 
   .btn {
-    line-height: 36px;
-    height: 56px;
+    line-height: 40px;
+    height: 42px;
+    padding: 0 12px;
 
     img {
       width: 32px;
       height: 32px;
     }
+  }
+}
+
+// Profile > Account > Two Factor Authentication
+.two-factor-new {
+  .manual-instructions {
+    h3 {
+      margin-top: 0;
+    }
+
+    // Slightly increase the size of the details so they're easier to read
+    dl {
+      font-size: 1.1em;
+    }
+  }
+}
+
+.account-well {
+  padding: 10px;
+  background-color: $help-well-bg;
+  border: 1px solid $help-well-border;
+  border-radius: $border-radius-base;
+
+  ul {
+    padding-left: 20px;
+    margin-bottom: 0;
+  }
+}
+
+.profile-link-holder {
+  display: inline;
+
+  a {
+    color: $blue-dark;
+    text-decoration: none;
+  }
+}
+
+// Middle dot divider between each element in a list of items.
+.middle-dot-divider {
+  &:after {
+    content: "\00B7"; // Middle Dot
+    padding: 0 6px;
+    font-weight: bold;
+  }
+
+  &:last-child {
+    &:after {
+      content: "";
+      padding: 0;
+    }
+  }
+}
+
+.profile-user-bio {
+  // Limits the width of the user bio for readability.
+  max-width: 600px;
+  margin: 10px auto;
+  padding: 0 16px;
+}
+
+.user-avatar-button {
+  .file-name {
+    display: inline-block;
+    padding-left: 10px;
+  }
+}
+
+.key-list-item {
+  .key-list-item-info {
+    @media (min-width: $screen-sm-min) {
+      float: left;
+    }
+  }
+
+  .description {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+}
+
+.key-created-at {
+  line-height: 42px;
+}
+
+.profile-settings-content {
+  a {
+    color: $md-link-color;
+  }
+}
+
+.provider-btn-group {
+  display: inline-block;
+  margin-right: 10px;
+  border: 1px solid $provider-btn-group-border;
+  border-radius: 3px;
+
+  &:last-child {
+    margin-right: 0;
+  }
+}
+
+.provider-btn-image {
+  display: inline-block;
+  padding: 5px 10px;
+  border-right: 1px solid $provider-btn-group-border;
+
+  > img {
+    width: 20px;
+  }
+}
+
+.provider-btn {
+  display: inline-block;
+  padding: 5px 10px;
+  margin-left: -3px;
+  line-height: 22px;
+  background-color: $gray-light;
+
+  &.not-active {
+    color: $provider-btn-not-active-color;
+  }
+}
+
+.oauth-applications {
+  form {
+    display: inline-block;
+  }
+
+  .last-heading {
+    width: 105px;
+  }
+}
+
+.modal-profile-crop {
+  .modal-dialog {
+    width: 380px;
+
+    @media (max-width: $screen-sm-min) {
+      width: auto;
+    }
+
+  }
+
+  .profile-crop-image-container {
+    height: 300px;
+    margin: 0 auto;
+  }
+
+  .crop-controls {
+    padding: 10px 0 0;
+    text-align: center;
+  }
+}
+
+.personal-access-tokens-never-expires-label {
+  color: $personal-access-tokens-disabled-label-color;
+}
+
+.datepicker.personal-access-tokens-expires-at .ui-state-disabled span {
+  text-align: center;
+}
+
+.created-personal-access-token-container {
+  #created-personal-access-token {
+    width: 90%;
+    display: inline;
+  }
+
+  .btn-clipboard {
+    margin-left: 5px;
+  }
+}
+
+.user-profile {
+
+  .cover-controls a {
+    margin-left: 5px;
+  }
+
+  .profile-header {
+    margin: 0 auto;
+
+    .avatar-holder {
+      width: 90px;
+      margin: 0 auto 10px;
+    }
+  }
+
+  @media (max-width: $screen-xs-max) {
+
+    .cover-block {
+      padding-top: 20px;
+    }
+
+    .cover-controls {
+      position: static;
+      padding: 0 16px;
+      margin-bottom: 20px;
+      display: -webkit-flex;
+      display: flex;
+
+      .btn {
+        -webkit-flex-grow: 1;
+        flex-grow: 1;
+
+        &:first-child {
+          margin-left: 0;
+        }
+      }
+    }
+  }
+}
+
+table.u2f-registrations {
+  th:not(:last-child), td:not(:last-child) {
+    border-right: solid 1px transparent;
   }
 }

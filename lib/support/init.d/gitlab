@@ -33,15 +33,23 @@ app_user="git"
 app_root="/home/$app_user/gitlab"
 pid_path="$app_root/tmp/pids"
 socket_path="$app_root/tmp/sockets"
+rails_socket="$socket_path/gitlab.socket"
 web_server_pid_path="$pid_path/unicorn.pid"
 sidekiq_pid_path="$pid_path/sidekiq.pid"
+mail_room_enabled=false
+mail_room_pid_path="$pid_path/mail_room.pid"
+gitlab_workhorse_dir=$(cd $app_root/../gitlab-workhorse 2> /dev/null && pwd)
+gitlab_workhorse_pid_path="$pid_path/gitlab-workhorse.pid"
+gitlab_workhorse_options="-listenUmask 0 -listenNetwork unix -listenAddr $socket_path/gitlab-workhorse.socket -authBackend http://127.0.0.1:8080 -authSocket $rails_socket -documentRoot $app_root/public"
+gitlab_workhorse_log="$app_root/log/gitlab-workhorse.log"
+shell_path="/bin/bash"
 
 # Read configuration variable file if it is present
 test -f /etc/default/gitlab && . /etc/default/gitlab
 
 # Switch to the app_user if it is not he/she who is running the script.
-if [ "$USER" != "$app_user" ]; then
-  eval su - "$app_user" -c $(echo \")$0 "$@"$(echo \"); exit;
+if [ `whoami` != "$app_user" ]; then
+  eval su - "$app_user" -c $(echo \")$shell_path -l -c \'$0 "$@"\'$(echo \"); exit;
 fi
 
 # Switch to the gitlab path, exit on failure.
@@ -69,13 +77,25 @@ check_pids(){
   else
     spid=0
   fi
+  if [ -f "$gitlab_workhorse_pid_path" ]; then
+    hpid=$(cat "$gitlab_workhorse_pid_path")
+  else
+    hpid=0
+  fi
+  if [ "$mail_room_enabled" = true ]; then
+    if [ -f "$mail_room_pid_path" ]; then
+      mpid=$(cat "$mail_room_pid_path")
+    else
+      mpid=0
+    fi
+  fi
 }
 
 ## Called when we have started the two processes and are waiting for their pid files.
 wait_for_pids(){
-  # We are sleeping a bit here mostly because sidekiq is slow at writing it's pid
+  # We are sleeping a bit here mostly because sidekiq is slow at writing its pid
   i=0;
-  while [ ! -f $web_server_pid_path -o ! -f $sidekiq_pid_path ]; do
+  while [ ! -f $web_server_pid_path ] || [ ! -f $sidekiq_pid_path ] || [ ! -f $gitlab_workhorse_pid_path ] || { [ "$mail_room_enabled" = true ] && [ ! -f $mail_room_pid_path ]; }; do
     sleep 0.1;
     i=$((i+1))
     if [ $((i%10)) = 0 ]; then
@@ -89,7 +109,7 @@ wait_for_pids(){
 }
 
 # We use the pids in so many parts of the script it makes sense to always check them.
-# Only after start() is run should the pids change. Sidekiq sets it's own pid.
+# Only after start() is run should the pids change. Sidekiq sets its own pid.
 check_pids
 
 
@@ -110,7 +130,21 @@ check_status(){
   else
     sidekiq_status="-1"
   fi
-  if [ $web_status = 0 -a $sidekiq_status = 0 ]; then
+  if [ $hpid -ne 0 ]; then
+    kill -0 "$hpid" 2>/dev/null
+    gitlab_workhorse_status="$?"
+  else
+    gitlab_workhorse_status="-1"
+  fi
+  if [ "$mail_room_enabled" = true ]; then
+    if [ $mpid -ne 0 ]; then
+      kill -0 "$mpid" 2>/dev/null
+      mail_room_status="$?"
+    else
+      mail_room_status="-1"
+    fi
+  fi
+  if [ $web_status = 0 ] && [ $sidekiq_status = 0 ] && [ $gitlab_workhorse_status = 0 ] && { [ "$mail_room_enabled" != true ] || [ $mail_room_status = 0 ]; }; then
     gitlab_status=0
   else
     # http://refspecs.linuxbase.org/LSB_4.1.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html
@@ -124,16 +158,30 @@ check_stale_pids(){
   check_status
   # If there is a pid it is something else than 0, the service is running if
   # *_status is == 0.
-  if [ "$wpid" != "0" -a "$web_status" != "0" ]; then
+  if [ "$wpid" != "0" ] && [ "$web_status" != "0" ]; then
     echo "Removing stale Unicorn web server pid. This is most likely caused by the web server crashing the last time it ran."
     if ! rm "$web_server_pid_path"; then
       echo "Unable to remove stale pid, exiting."
       exit 1
     fi
   fi
-  if [ "$spid" != "0" -a "$sidekiq_status" != "0" ]; then
+  if [ "$spid" != "0" ] && [ "$sidekiq_status" != "0" ]; then
     echo "Removing stale Sidekiq job dispatcher pid. This is most likely caused by Sidekiq crashing the last time it ran."
     if ! rm "$sidekiq_pid_path"; then
+      echo "Unable to remove stale pid, exiting"
+      exit 1
+    fi
+  fi
+  if [ "$hpid" != "0" ] && [ "$gitlab_workhorse_status" != "0" ]; then
+    echo "Removing stale GitLab Workhorse pid. This is most likely caused by GitLab Workhorse crashing the last time it ran."
+    if ! rm "$gitlab_workhorse_pid_path"; then
+      echo "Unable to remove stale pid, exiting"
+      exit 1
+    fi
+  fi
+  if [ "$mail_room_enabled" = true ] && [ "$mpid" != "0" ] && [ "$mail_room_status" != "0" ]; then
+    echo "Removing stale MailRoom job dispatcher pid. This is most likely caused by MailRoom crashing the last time it ran."
+    if ! rm "$mail_room_pid_path"; then
       echo "Unable to remove stale pid, exiting"
       exit 1
     fi
@@ -143,7 +191,7 @@ check_stale_pids(){
 ## If no parts of the service is running, bail out.
 exit_if_not_running(){
   check_stale_pids
-  if [ "$web_status" != "0" -a "$sidekiq_status" != "0" ]; then
+  if [ "$web_status" != "0" ] && [ "$sidekiq_status" != "0" ] && [ "$gitlab_workhorse_status" != "0" ] && { [ "$mail_room_enabled" != true ] || [ "$mail_room_status" != "0" ]; }; then
     echo "GitLab is not running."
     exit
   fi
@@ -153,12 +201,17 @@ exit_if_not_running(){
 start_gitlab() {
   check_stale_pids
 
-  if [ "$web_status" != "0" -a "$sidekiq_status" != "0" ]; then
-    echo -n "Starting both the GitLab Unicorn and Sidekiq"
-  elif [ "$web_status" != "0" ]; then
-    echo -n "Starting GitLab Unicorn"
-  elif [ "$sidekiq_status" != "0" ]; then
-    echo -n "Starting GitLab Sidekiq"
+  if [ "$web_status" != "0" ]; then
+    echo "Starting GitLab Unicorn"
+  fi
+  if [ "$sidekiq_status" != "0" ]; then
+    echo "Starting GitLab Sidekiq"
+  fi
+  if [ "$gitlab_workhorse_status" != "0" ]; then
+    echo "Starting GitLab Workhorse"
+  fi
+  if [ "$mail_room_enabled" = true ] && [ "$mail_room_status" != "0" ]; then
+    echo "Starting GitLab MailRoom"
   fi
 
   # Then check if the service is running. If it is: don't start again.
@@ -166,7 +219,7 @@ start_gitlab() {
     echo "The Unicorn web server already running with pid $wpid, not restarting."
   else
     # Remove old socket if it exists
-    rm -f "$socket_path"/gitlab.socket 2>/dev/null
+    rm -f "$rails_socket" 2>/dev/null
     # Start the web server
     RAILS_ENV=$RAILS_ENV bin/web start
   fi
@@ -178,39 +231,60 @@ start_gitlab() {
     RAILS_ENV=$RAILS_ENV bin/background_jobs start &
   fi
 
+  if [ "$gitlab_workhorse_status" = "0" ]; then
+    echo "The GitLab Workhorse is already running with pid $spid, not restarting"
+  else
+    # No need to remove a socket, gitlab-workhorse does this itself.
+    # Because gitlab-workhorse has multiple executables we need to fix
+    # the PATH.
+    $app_root/bin/daemon_with_pidfile $gitlab_workhorse_pid_path  \
+      /usr/bin/env PATH=$gitlab_workhorse_dir:$PATH \
+        gitlab-workhorse $gitlab_workhorse_options \
+      >> $gitlab_workhorse_log 2>&1 &
+  fi
+
+  if [ "$mail_room_enabled" = true ]; then
+    # If MailRoom is already running, don't start it again.
+    if [ "$mail_room_status" = "0" ]; then
+      echo "The MailRoom email processor is already running with pid $mpid, not restarting"
+    else
+      RAILS_ENV=$RAILS_ENV bin/mail_room start &
+    fi
+  fi
+
   # Wait for the pids to be planted
   wait_for_pids
   # Finally check the status to tell wether or not GitLab is running
   print_status
 }
 
-## Asks the Unicorn and the Sidekiq if they would be so kind as to stop, if not kills them.
+## Asks Unicorn, Sidekiq and MailRoom if they would be so kind as to stop, if not kills them.
 stop_gitlab() {
   exit_if_not_running
 
-  if [ "$web_status" = "0" -a "$sidekiq_status" = "0" ]; then
-    echo -n "Shutting down both Unicorn and Sidekiq"
-  elif [ "$web_status" = "0" ]; then
-    echo -n "Shutting down Unicorn"
-  elif [ "$sidekiq_status" = "0" ]; then
-    echo -n "Shutting down Sidekiq"
-  fi
-
-  # If the Unicorn web server is running, tell it to stop;
   if [ "$web_status" = "0" ]; then
-     RAILS_ENV=$RAILS_ENV bin/web stop
+    echo "Shutting down GitLab Unicorn"
+    RAILS_ENV=$RAILS_ENV bin/web stop
   fi
-  # And do the same thing for the Sidekiq.
   if [ "$sidekiq_status" = "0" ]; then
+    echo "Shutting down GitLab Sidekiq"
     RAILS_ENV=$RAILS_ENV bin/background_jobs stop
+  fi
+  if [ "$gitlab_workhorse_status" = "0" ]; then
+    echo "Shutting down GitLab Workhorse"
+    kill -- $(cat $gitlab_workhorse_pid_path)
+  fi
+  if [ "$mail_room_enabled" = true ] && [ "$mail_room_status" = "0" ]; then
+    echo "Shutting down GitLab MailRoom"
+    RAILS_ENV=$RAILS_ENV bin/mail_room stop
   fi
 
   # If something needs to be stopped, lets wait for it to stop. Never use SIGKILL in a script.
-  while [ "$web_status" = "0" -o "$sidekiq_status" = "0" ]; do
+  while [ "$web_status" = "0" ] || [ "$sidekiq_status" = "0" ] || [ "$gitlab_workhorse_status" = "0" ] || { [ "$mail_room_enabled" = true ] && [ "$mail_room_status" = "0" ]; }; do
     sleep 1
     check_status
     printf "."
-    if [ "$web_status" != "0" -a "$sidekiq_status" != "0" ]; then
+    if [ "$web_status" != "0" ] && [ "$sidekiq_status" != "0" ] && [ "$gitlab_workhorse_status" != "0" ] && { [ "$mail_room_enabled" != true ] || [ "$mail_room_status" != "0" ]; }; then
       printf "\n"
       break
     fi
@@ -219,15 +293,19 @@ stop_gitlab() {
   sleep 1
   # Cleaning up unused pids
   rm "$web_server_pid_path" 2>/dev/null
-  # rm "$sidekiq_pid_path" # Sidekiq seems to be cleaning up it's own pid.
+  # rm "$sidekiq_pid_path" 2>/dev/null # Sidekiq seems to be cleaning up its own pid.
+  rm -f "$gitlab_workhorse_pid_path"
+  if [ "$mail_room_enabled" = true ]; then
+    rm "$mail_room_pid_path" 2>/dev/null
+  fi
 
   print_status
 }
 
-## Prints the status of GitLab and it's components.
+## Prints the status of GitLab and its components.
 print_status() {
   check_status
-  if [ "$web_status" != "0" -a "$sidekiq_status" != "0" ]; then
+  if [ "$web_status" != "0" ] && [ "$sidekiq_status" != "0" ] && [ "$gitlab_workhorse_status" != "0" ] && { [ "$mail_room_enabled" != true ] || [ "$mail_room_status" != "0" ]; }; then
     echo "GitLab is not running."
     return
   fi
@@ -241,12 +319,24 @@ print_status() {
   else
       printf "The GitLab Sidekiq job dispatcher is \033[31mnot running\033[0m.\n"
   fi
-  if [ "$web_status" = "0" -a "$sidekiq_status" = "0" ]; then
+  if [ "$gitlab_workhorse_status" = "0" ]; then
+      echo "The GitLab Workhorse with pid $hpid is running."
+  else
+      printf "The GitLab Workhorse is \033[31mnot running\033[0m.\n"
+  fi
+  if [ "$mail_room_enabled" = true ]; then
+    if [ "$mail_room_status" = "0" ]; then
+        echo "The GitLab MailRoom email processor with pid $mpid is running."
+    else
+        printf "The GitLab MailRoom email processor is \033[31mnot running\033[0m.\n"
+    fi
+  fi
+  if [ "$web_status" = "0" ] && [ "$sidekiq_status" = "0" ] && [ "$gitlab_workhorse_status" = "0" ] && { [ "$mail_room_enabled" != true ] || [ "$mail_room_status" = "0" ]; }; then
     printf "GitLab and all its components are \033[32mup and running\033[0m.\n"
   fi
 }
 
-## Tells unicorn to reload it's config and Sidekiq to restart
+## Tells unicorn to reload its config and Sidekiq to restart
 reload_gitlab(){
   exit_if_not_running
   if [ "$wpid" = "0" ];then
@@ -256,8 +346,14 @@ reload_gitlab(){
   printf "Reloading GitLab Unicorn configuration... "
   RAILS_ENV=$RAILS_ENV bin/web reload
   echo "Done."
+
   echo "Restarting GitLab Sidekiq since it isn't capable of reloading its config..."
   RAILS_ENV=$RAILS_ENV bin/background_jobs restart
+
+  if [ "$mail_room_enabled" != true ]; then
+    echo "Restarting GitLab MailRoom since it isn't capable of reloading its config..."
+    RAILS_ENV=$RAILS_ENV bin/mail_room restart
+  fi
 
   wait_for_pids
   print_status
@@ -266,7 +362,7 @@ reload_gitlab(){
 ## Restarts Sidekiq and Unicorn.
 restart_gitlab(){
   check_status
-  if [ "$web_status" = "0" -o "$sidekiq_status" = "0" ]; then
+  if [ "$web_status" = "0" ] || [ "$sidekiq_status" = "0" ] || [ "$gitlab_workhorse" = "0" ] || { [ "$mail_room_enabled" = true ] && [ "$mail_room_status" = "0" ]; }; then
     stop_gitlab
   fi
   start_gitlab

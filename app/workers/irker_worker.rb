@@ -19,7 +19,7 @@ class IrkerWorker
       branch = "\x0305#{branch}\x0f"
     end
 
-    # Firsts messages are for branch creation/deletion
+    # First messages are for branch creation/deletion
     send_branch_updates push_data, project, repo_name, committer, branch
 
     # Next messages are for commits
@@ -34,7 +34,7 @@ class IrkerWorker
   def init_perform(set, chans, colors)
     @colors = colors
     @channels = chans
-    start_connection set['server_ip'], set['server_port']
+    start_connection set['server_host'], set['server_port']
   end
 
   def start_connection(irker_server, irker_port)
@@ -137,13 +137,14 @@ class IrkerWorker
   end
 
   def commit_from_id(project, id)
-    commit = Gitlab::Git::Commit.find(project.repository, id)
-    Commit.new(commit)
+    project.commit(id)
   end
 
   def files_count(commit)
-    files = "#{commit.diffs.count} file"
-    files += 's' if commit.diffs.count > 1
+    diffs = commit.raw_diffs(deltas_only: true)
+
+    files = "#{diffs.real_size} file"
+    files += 's' if diffs.size > 1
     files
   end
 

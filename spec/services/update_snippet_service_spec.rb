@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-describe UpdateSnippetService do
+describe UpdateSnippetService, services: true do
   before do
     @user = create :user
     @admin = create :user, admin: true
@@ -14,11 +14,7 @@ describe UpdateSnippetService do
 
   context 'When public visibility is restricted' do
     before do
-      allow_any_instance_of(ApplicationSetting).to(
-        receive(:restricted_visibility_levels).and_return(
-          [Gitlab::VisibilityLevel::PUBLIC]
-        )
-      )
+      stub_application_setting(restricted_visibility_levels: [Gitlab::VisibilityLevel::PUBLIC])
 
       @snippet = create_snippet(@project, @user, @opts)
       @opts.merge!(visibility_level: Gitlab::VisibilityLevel::PUBLIC)
@@ -29,7 +25,7 @@ describe UpdateSnippetService do
       update_snippet(@project, @user, @snippet, @opts)
       expect(@snippet.errors.messages).to have_key(:visibility_level)
       expect(@snippet.errors.messages[:visibility_level].first).to(
-        match('Public visibility has been restricted')
+        match('has been restricted')
       )
       expect(@snippet.visibility_level).to eq(old_visibility)
     end
@@ -46,7 +42,7 @@ describe UpdateSnippetService do
     CreateSnippetService.new(project, user, opts).execute
   end
 
-  def update_snippet(project = nil, user, snippet, opts)
+  def update_snippet(project, user, snippet, opts)
     UpdateSnippetService.new(project, user, snippet, opts).execute
   end
 end

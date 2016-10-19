@@ -3,54 +3,90 @@ require "spec_helper"
 describe API::API, api: true  do
   include ApiHelpers
   let(:user) { create(:user) }
+  let(:admin) { create(:admin) }
+  let(:user2) { create(:user) }
   let(:project) {create(:project, creator_id: user.id, namespace: user.namespace) }
 
-  describe "POST /projects/:id/services/gitlab-ci" do
-    it "should update gitlab-ci settings" do
-      put api("/projects/#{project.id}/services/gitlab-ci", user), token: 'secret-token', project_url: "http://ci.example.com/projects/1"
+  Service.available_services_names.each do |service|
+    describe "PUT /projects/:id/services/#{service.dasherize}" do
+      include_context service
 
-      expect(response.status).to eq(200)
+      it "updates #{service} settings" do
+        put api("/projects/#{project.id}/services/#{dashed_service}", user), service_attrs
+
+        expect(response).to have_http_status(200)
+      end
+
+      it "returns if required fields missing" do
+        attrs = service_attrs
+
+        required_attributes = service_attrs_list.select do |attr|
+          service_klass.validators_on(attr).any? do |v|
+            v.class == ActiveRecord::Validations::PresenceValidator
+          end
+        end
+
+        if required_attributes.empty?
+          expected_code = 200
+        else
+          attrs.delete(required_attributes.sample)
+          expected_code = 400
+        end
+
+        put api("/projects/#{project.id}/services/#{dashed_service}", user), attrs
+
+        expect(response.status).to eq(expected_code)
+      end
     end
 
-    it "should return if required fields missing" do
-      put api("/projects/#{project.id}/services/gitlab-ci", user), project_url: "http://ci.example.com/projects/1", active: true
+    describe "DELETE /projects/:id/services/#{service.dasherize}" do
+      include_context service
 
-      expect(response.status).to eq(400)
-    end
-  end
+      it "deletes #{service}" do
+        delete api("/projects/#{project.id}/services/#{dashed_service}", user)
 
-  describe "DELETE /projects/:id/services/gitlab-ci" do
-    it "should update gitlab-ci settings" do
-      delete api("/projects/#{project.id}/services/gitlab-ci", user)
-
-      expect(response.status).to eq(200)
-      expect(project.gitlab_ci_service).to be_nil
-    end
-  end
-
-  describe 'PUT /projects/:id/services/hipchat' do
-    it 'should update hipchat settings' do
-      put api("/projects/#{project.id}/services/hipchat", user),
-          token: 'secret-token', room: 'test'
-
-      expect(response.status).to eq(200)
-      expect(project.hipchat_service).not_to be_nil
+        expect(response).to have_http_status(200)
+        project.send(service_method).reload
+        expect(project.send(service_method).activated?).to be_falsey
+      end
     end
 
-    it 'should return if required fields missing' do
-      put api("/projects/#{project.id}/services/gitlab-ci", user),
-          token: 'secret-token', active: true
+    describe "GET /projects/:id/services/#{service.dasherize}" do
+      include_context service
 
-      expect(response.status).to eq(400)
-    end
-  end
+      # inject some properties into the service
+      before do
+        project.build_missing_services
+        service_object = project.send(service_method)
+        service_object.properties = service_attrs
+        service_object.save
+      end
 
-  describe 'DELETE /projects/:id/services/hipchat' do
-    it 'should delete hipchat settings' do
-      delete api("/projects/#{project.id}/services/hipchat", user)
+      it 'returns authentication error when unauthenticated' do
+        get api("/projects/#{project.id}/services/#{dashed_service}")
+        expect(response).to have_http_status(401)
+      end
 
-      expect(response.status).to eq(200)
-      expect(project.hipchat_service).to be_nil
+      it "returns all properties of service #{service} when authenticated as admin" do
+        get api("/projects/#{project.id}/services/#{dashed_service}", admin)
+
+        expect(response).to have_http_status(200)
+        expect(json_response['properties'].keys.map(&:to_sym)).to match_array(service_attrs_list.map)
+      end
+
+      it "returns properties of service #{service} other than passwords when authenticated as project owner" do
+        get api("/projects/#{project.id}/services/#{dashed_service}", user)
+
+        expect(response).to have_http_status(200)
+        expect(json_response['properties'].keys.map(&:to_sym)).to match_array(service_attrs_list_without_passwords)
+      end
+
+      it "returns error when authenticated but not a project owner" do
+        project.team << [user2, :developer]
+        get api("/projects/#{project.id}/services/#{dashed_service}", user2)
+
+        expect(response).to have_http_status(403)
+      end
     end
   end
 end

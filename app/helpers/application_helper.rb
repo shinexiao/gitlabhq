@@ -2,26 +2,6 @@ require 'digest/md5'
 require 'uri'
 
 module ApplicationHelper
-  COLOR_SCHEMES = {
-    1 => 'white',
-    2 => 'dark',
-    3 => 'solarized-light',
-    4 => 'solarized-dark',
-    5 => 'monokai',
-  }
-  COLOR_SCHEMES.default = 'white'
-
-  # Helper method to access the COLOR_SCHEMES
-  #
-  # The keys are the `color_scheme_ids`
-  # The values are the `name` of the scheme.
-  #
-  # The preview images are `name-scheme-preview.png`
-  # The stylesheets should use the css class `.name`
-  def color_schemes
-    COLOR_SCHEMES.freeze
-  end
-
   # Check if a particular controller is the current one
   #
   # args - One or more controller names to check
@@ -33,7 +13,9 @@ module ApplicationHelper
   #   current_controller?(:commits)        # => false
   #   current_controller?(:commits, :tree) # => true
   def current_controller?(*args)
-    args.any? { |v| v.to_s.downcase == controller.controller_name }
+    args.any? do |v|
+      v.to_s.downcase == controller.controller_name || v.to_s.downcase == controller.controller_path
+    end
   end
 
   # Check if a particular action is the current one
@@ -53,7 +35,7 @@ module ApplicationHelper
   def project_icon(project_id, options = {})
     project =
       if project_id.is_a?(Project)
-        project = project_id
+        project_id
       else
         Project.find_with_namespace(project_id)
       end
@@ -79,30 +61,34 @@ module ApplicationHelper
     options[:class] ||= ''
     options[:class] << ' identicon'
     bg_key = project.id % 7
-    style = "background-color: ##{ allowed_colors.values[bg_key] }; color: #555"
+    style = "background-color: ##{allowed_colors.values[bg_key]}; color: #555"
 
     content_tag(:div, class: options[:class], style: style) do
       project.name[0, 1].upcase
     end
   end
 
-  def avatar_icon(user_email = '', size = nil)
-    user = User.find_by(email: user_email)
+  def avatar_icon(user_or_email = nil, size = nil, scale = 2)
+    if user_or_email.is_a?(User)
+      user = user_or_email
+    else
+      user = User.find_by_any_email(user_or_email.try(:downcase))
+    end
 
     if user
       user.avatar_url(size) || default_avatar
     else
-      gravatar_icon(user_email, size)
+      gravatar_icon(user_or_email, size, scale)
     end
   end
 
-  def gravatar_icon(user_email = '', size = nil)
-    GravatarService.new.execute(user_email, size) ||
+  def gravatar_icon(user_email = '', size = nil, scale = 2)
+    GravatarService.new.execute(user_email, size, scale) ||
       default_avatar
   end
 
   def default_avatar
-    image_path('no_avatar.png')
+    'no_avatar.png'
   end
 
   def last_commit(project)
@@ -115,41 +101,6 @@ module ApplicationHelper
     'Never'
   end
 
-  def grouped_options_refs
-    repository = @project.repository
-
-    options = [
-      ['Branches', repository.branch_names],
-      ['Tags', VersionSorter.rsort(repository.tag_names)]
-    ]
-
-    # If reference is commit id - we should add it to branch/tag selectbox
-    if(@ref && !options.flatten.include?(@ref) &&
-       @ref =~ /^[0-9a-zA-Z]{6,52}$/)
-      options << ['Commit', [@ref]]
-    end
-
-    grouped_options_for_select(options, @ref || @project.default_branch)
-  end
-
-  def emoji_autocomplete_source
-    # should be an array of strings
-    # so to_s can be called, because it is sufficient and to_json is too slow
-    Emoji.names.to_s
-  end
-
-  def app_theme
-    Gitlab::Theme.css_class_by_id(current_user.try(:theme_id))
-  end
-
-  def theme_type
-    Gitlab::Theme.type_css_class_by_id(current_user.try(:theme_id))
-  end
-
-  def user_color_scheme_class
-    COLOR_SCHEMES[current_user.try(:color_scheme_id)] if defined?(current_user)
-  end
-
   # Define whenever show last push event
   # with suggestion to create MR
   def show_last_push_widget?(event)
@@ -159,13 +110,13 @@ module ApplicationHelper
     project = event.project
 
     # Skip if project repo is empty or MR disabled
-    return false unless project && !project.empty_repo? && project.merge_requests_enabled
+    return false unless project && !project.empty_repo? && project.feature_available?(:merge_requests, current_user)
 
     # Skip if user already created appropriate MR
     return false if project.merge_requests.where(source_branch: event.branch_name).opened.any?
 
     # Skip if user removed branch right after that
-    return false unless project.repository.branch_names.include?(event.branch_name)
+    return false unless project.repository.branch_exists?(event.branch_name)
 
     true
   end
@@ -195,76 +146,89 @@ module ApplicationHelper
     Gitlab.config.extra
   end
 
-  def search_placeholder
-    if @project && @project.persisted?
-      'Search in this project'
-    elsif @snippet || @snippets || @show_snippets
-      'Search snippets'
-    elsif @group && @group.persisted?
-      'Search in this group'
-    else
-      'Search'
+  # Render a `time` element with Javascript-based relative date and tooltip
+  #
+  # time       - Time object
+  # placement  - Tooltip placement String (default: "top")
+  # html_class - Custom class for `time` element (default: "time_ago")
+  # skip_js    - When true, exclude the `script` tag (default: false)
+  #
+  # By default also includes a `script` element with Javascript necessary to
+  # initialize the `timeago` jQuery extension. If this method is called many
+  # times, for example rendering hundreds of commits, it's advisable to disable
+  # this behavior using the `skip_js` argument and re-initializing `timeago`
+  # manually once all of the elements have been rendered.
+  #
+  # A `js-timeago` class is always added to the element, even when a custom
+  # `html_class` argument is provided.
+  #
+  # Returns an HTML-safe String
+  def time_ago_with_tooltip(time, placement: 'top', html_class: '', skip_js: false, short_format: false)
+    css_classes = short_format ? 'js-short-timeago' : 'js-timeago'
+    css_classes << " #{html_class}" unless html_class.blank?
+    css_classes << ' js-timeago-pending' unless skip_js
+
+    element = content_tag :time, time.to_s,
+      class: css_classes,
+      datetime: time.to_time.getutc.iso8601,
+      title: time.to_time.in_time_zone.to_s(:medium),
+      data: { toggle: 'tooltip', placement: placement, container: 'body' }
+
+    unless skip_js
+      element << javascript_tag(
+        "$('.js-timeago-pending').removeClass('js-timeago-pending').timeago()"
+      )
+    end
+
+    element
+  end
+
+  def edited_time_ago_with_tooltip(object, placement: 'top', html_class: 'time_ago', include_author: false)
+    return if object.updated_at == object.created_at
+
+    content_tag :small, class: "edited-text" do
+      output = content_tag(:span, "Edited ")
+      output << time_ago_with_tooltip(object.updated_at, placement: placement, html_class: html_class)
+
+      if include_author && object.updated_by && object.updated_by != object.author
+        output << content_tag(:span, " by ")
+        output << link_to_member(object.project, object.updated_by, avatar: false, author_class: nil)
+      end
+
+      output
     end
   end
 
-  def broadcast_message
-    BroadcastMessage.current
-  end
-
-  def time_ago_with_tooltip(date, placement = 'top', html_class = 'time_ago')
-    capture_haml do
-      haml_tag :time, date.to_s,
-        class: html_class, datetime: date.getutc.iso8601, title: date.stamp('Aug 21, 2011 9:23pm'),
-        data: { toggle: 'tooltip', placement: placement }
-
-      haml_tag :script, "$('." + html_class + "').timeago().tooltip()"
-    end.html_safe
-  end
-
   def render_markup(file_name, file_content)
-    GitHub::Markup.render(file_name, file_content).
-      force_encoding(file_content.encoding).html_safe
+    if gitlab_markdown?(file_name)
+      Hamlit::RailsHelpers.preserve(markdown(file_content))
+    elsif asciidoc?(file_name)
+      asciidoc(file_content)
+    elsif plain?(file_name)
+      content_tag :pre, class: 'plain-readme' do
+        file_content
+      end
+    else
+      other_markup(file_name, file_content)
+    end
   rescue RuntimeError
     simple_format(file_content)
   end
 
+  def plain?(filename)
+    Gitlab::MarkupHelper.plain?(filename)
+  end
+
   def markup?(filename)
-    Gitlab::MarkdownHelper.markup?(filename)
+    Gitlab::MarkupHelper.markup?(filename)
   end
 
   def gitlab_markdown?(filename)
-    Gitlab::MarkdownHelper.gitlab_markdown?(filename)
+    Gitlab::MarkupHelper.gitlab_markdown?(filename)
   end
 
-  def link_to(name = nil, options = nil, html_options = nil, &block)
-    begin
-      uri = URI(options)
-      host = uri.host
-      absolute_uri = uri.absolute?
-    rescue URI::InvalidURIError, ArgumentError
-      host = nil
-      absolute_uri = nil
-    end
-
-    # Add 'nofollow' only to external links
-    if host && host != Gitlab.config.gitlab.host && absolute_uri
-      if html_options
-        if html_options[:rel]
-          html_options[:rel] << ' nofollow'
-        else
-          html_options.merge!(rel: 'nofollow')
-        end
-      else
-        html_options = Hash.new
-        html_options[:rel] = 'nofollow'
-      end
-    end
-
-    super
-  end
-
-  def escaped_autolink(text)
-    auto_link ERB::Util.html_escape(text), link: :urls
+  def asciidoc?(filename)
+    Gitlab::MarkupHelper.asciidoc?(filename)
   end
 
   def promo_host
@@ -275,22 +239,33 @@ module ApplicationHelper
     'https://' + promo_host
   end
 
-  def page_filter_path(options={})
+  def page_filter_path(options = {})
+    without = options.delete(:without)
+    add_label = options.delete(:label)
+
     exist_opts = {
       state: params[:state],
       scope: params[:scope],
-      label_name: params[:label_name],
-      milestone_id: params[:milestone_id],
+      milestone_title: params[:milestone_title],
       assignee_id: params[:assignee_id],
       author_id: params[:author_id],
-      sort: params[:sort],
+      search: params[:search],
+      label_name: params[:label_name]
     }
 
     options = exist_opts.merge(options)
 
-    path = request.path
-    path << "?#{options.to_param}"
-    path
+    if without.present?
+      without.each do |key|
+        options.delete(key)
+      end
+    end
+
+    params = options.compact
+
+    params.delete(:label_name) unless add_label
+
+    "#{request.path}?#{params.to_param}"
   end
 
   def outdated_browser?
@@ -305,11 +280,22 @@ module ApplicationHelper
     end
   end
 
-  def nav_sidebar_class
-    if nav_menu_collapsed?
-      "page-sidebar-collapsed"
+  def truncate_first_line(message, length = 50)
+    truncate(message.each_line.first.chomp, length: length) if message
+  end
+
+  # While similarly named to Rails's `link_to_if`, this method behaves quite differently.
+  # If `condition` is truthy, a link will be returned with the result of the block
+  # as its body. If `condition` is falsy, only the result of the block will be returned.
+  def conditional_link_to(condition, options, html_options = {}, &block)
+    if condition
+      link_to options, html_options, &block
     else
-      "page-sidebar-expanded"
+      capture(&block)
     end
+  end
+
+  def page_class
+    "issue-boards-page" if current_controller?(:boards)
   end
 end

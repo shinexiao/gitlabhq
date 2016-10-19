@@ -1,492 +1,93 @@
 require 'sidekiq/web'
+require 'sidekiq/cron/web'
 require 'api/api'
 
-Gitlab::Application.routes.draw do
+class ActionDispatch::Routing::Mapper
+  def draw(routes_name)
+    instance_eval(File.read(Rails.root.join("config/routes/#{routes_name}.rb")))
+  end
+end
+
+Rails.application.routes.draw do
+  concern :access_requestable do
+    post :request_access, on: :collection
+    post :approve_access_request, on: :member
+  end
+
+  concern :awardable do
+    post :toggle_award_emoji, on: :member
+  end
+
+  draw :sherlock
+  draw :development
+  draw :ci
+
   use_doorkeeper do
     controllers applications: 'oauth/applications',
                 authorized_applications: 'oauth/authorized_applications',
                 authorizations: 'oauth/authorizations'
   end
 
+  # Autocomplete
+  get '/autocomplete/users' => 'autocomplete#users'
+  get '/autocomplete/users/:id' => 'autocomplete#user'
+  get '/autocomplete/projects' => 'autocomplete#projects'
+
+  # Emojis
+  resources :emojis, only: :index
+
   # Search
   get 'search' => 'search#show'
   get 'search/autocomplete' => 'search#autocomplete', as: :search_autocomplete
 
-  # API
-  API::API.logger Rails.logger
-  mount API::API => '/api'
+  # JSON Web Token
+  get 'jwt/auth' => 'jwt#auth'
+
+  # Health check
+  get 'health_check(/:checks)' => 'health_check#index', as: :health_check
+
+  # Koding route
+  get 'koding' => 'koding#index'
+
+  draw :api
+  draw :sidekiq
+  draw :help
+  draw :snippets
+
+  # Invites
+  resources :invites, only: [:show], constraints: { id: /[A-Za-z0-9_-]+/ } do
+    member do
+      post :accept
+      match :decline, via: [:get, :post]
+    end
+  end
+
+  resources :sent_notifications, only: [], constraints: { id: /\h{32}/ } do
+    member do
+      get :unsubscribe
+    end
+  end
+
+  # Spam reports
+  resources :abuse_reports, only: [:new, :create]
+
+  # Notification settings
+  resources :notification_settings, only: [:create, :update]
+
+  draw :import
+  draw :uploads
+  draw :explore
+  draw :admin
+  draw :profile
+  draw :dashboard
+  draw :group
+  draw :user
+  draw :project
 
   # Get all keys of user
-  get ':username.keys' => 'profiles/keys#get_keys' , constraints: { username: /.*/ }
+  get ':username.keys' => 'profiles/keys#get_keys', constraints: { username: /.*/ }
 
-  constraint = lambda { |request| request.env['warden'].authenticate? and request.env['warden'].user.admin? }
-  constraints constraint do
-    mount Sidekiq::Web, at: '/admin/sidekiq', as: :sidekiq
-  end
+  root to: "root#index"
 
-  # Enable Grack support
-  mount Grack::Bundle.new({
-    git_path:     Gitlab.config.git.bin_path,
-    project_root: Gitlab.config.gitlab_shell.repos_path,
-    upload_pack:  Gitlab.config.gitlab_shell.upload_pack,
-    receive_pack: Gitlab.config.gitlab_shell.receive_pack
-  }), at: '/', constraints: lambda { |request| /[-\/\w\.]+\.git\//.match(request.path_info) }, via: [:get, :post]
-
-  # Help
-  get 'help'                  => 'help#index'
-  get 'help/:category/:file'  => 'help#show', as: :help_page
-  get 'help/shortcuts'
-  get 'help/ui'               => 'help#ui'
-
-  #
-  # Global snippets
-  #
-  resources :snippets do
-    member do
-      get 'raw'
-    end
-  end
-  get '/s/:username' => 'snippets#user_index', as: :user_snippets, constraints: { username: /.*/ }
-
-
-  #
-  # Import
-  #
-  namespace :import do
-    resource :github, only: [:create, :new], controller: :github do
-      get :status
-      get :callback
-      get :jobs
-    end
-
-    resource :gitlab, only: [:create, :new], controller: :gitlab do
-      get :status
-      get :callback
-      get :jobs
-    end
-
-    resource :bitbucket, only: [:create, :new], controller: :bitbucket do
-      get :status
-      get :callback
-      get :jobs
-    end
-
-    resource :gitorious, only: [:create, :new], controller: :gitorious do
-      get :status
-      get :callback
-      get :jobs
-    end
-  end
-
-  #
-  # Uploads
-  #
-
-  scope path: :uploads do
-    # Note attachments and User/Group/Project avatars
-    get ":model/:mounted_as/:id/:filename",
-        to:           "uploads#show",
-        constraints:  { model: /note|user|group|project/, mounted_as: /avatar|attachment/, filename: /.+/ }
-
-    # Project markdown uploads
-    get ":namespace_id/:project_id/:secret/:filename",
-      to:           "projects/uploads#show",
-      constraints:  { namespace_id: /[a-zA-Z.0-9_\-]+/, project_id: /[a-zA-Z.0-9_\-]+/, filename: /.+/ }
-  end
-
-  # Redirect old note attachments path to new uploads path.
-  get "files/note/:id/:filename",
-    to:           redirect("uploads/note/attachment/%{id}/%{filename}"),
-    constraints:  { filename: /.+/ }
-
-  #
-  # Explore area
-  #
-  namespace :explore do
-    resources :projects, only: [:index] do
-      collection do
-        get :trending
-        get :starred
-      end
-    end
-
-    resources :groups, only: [:index]
-    root to: 'projects#trending'
-  end
-
-  # Compatibility with old routing
-  get 'public' => 'explore/projects#index'
-  get 'public/projects' => 'explore/projects#index'
-
-  #
-  # Admin Area
-  #
-  namespace :admin do
-    resources :users, constraints: { id: /[a-zA-Z.\/0-9_\-]+/ } do
-      resources :keys, only: [:show, :destroy]
-      member do
-        put :team_update
-        put :block
-        put :unblock
-        delete 'remove/:email_id', action: 'remove_email', as: 'remove_email'
-      end
-    end
-
-    resources :applications
-
-    resources :groups, constraints: { id: /[^\/]+/ } do
-      member do
-        put :members_update
-      end
-    end
-
-    resources :hooks, only: [:index, :create, :destroy] do
-      get :test
-    end
-
-    resources :broadcast_messages, only: [:index, :create, :destroy]
-    resource :logs, only: [:show]
-    resource :background_jobs, controller: 'background_jobs', only: [:show]
-
-    resources :namespaces, path: '/projects', constraints: { id: /[a-zA-Z.0-9_\-]+/ }, only: [] do
-      root to: 'projects#index', as: :projects
-
-      resources(:projects,
-                path: '/',
-                constraints: { id: /[a-zA-Z.0-9_\-]+/ },
-                only: [:index, :show]) do
-        root to: 'projects#show'
-
-        member do
-          put :transfer
-        end
-      end
-    end
-
-    resource :application_settings, only: [:show, :update] do
-      resources :services
-    end
-
-    root to: 'dashboard#index'
-  end
-
-  #
-  # Profile Area
-  #
-  resource :profile, only: [:show, :update] do
-    member do
-      get :history
-      get :design
-      get :applications
-
-      put :reset_private_token
-      put :update_username
-    end
-
-    scope module: :profiles do
-      resource :account, only: [:show, :update] do
-        member do
-          delete :unlink
-        end
-      end
-      resource :notifications, only: [:show, :update]
-      resource :password, only: [:new, :create, :edit, :update] do
-        member do
-          put :reset
-        end
-      end
-      resources :keys
-      resources :emails, only: [:index, :create, :destroy]
-      resource :avatar, only: [:destroy]
-    end
-  end
-
-  get 'u/:username/calendar' => 'users#calendar', as: :user_calendar,
-      constraints: { username: /.*/ }
-
-  get 'u/:username/calendar_activities' => 'users#calendar_activities', as: :user_calendar_activities,
-      constraints: { username: /.*/ }
-
-  get '/u/:username' => 'users#show', as: :user,
-      constraints: { username: /(?:[^.]|\.(?!atom$))+/, format: /atom/ }
-
-  #
-  # Dashboard Area
-  #
-  resource :dashboard, controller: 'dashboard', only: [:show] do
-    member do
-      get :issues
-      get :merge_requests
-    end
-
-    scope module: :dashboard do
-      resources :milestones, only: [:index, :show]
-
-      resources :groups, only: [:index]
-
-      resources :projects, only: [] do
-        collection do
-          get :starred
-        end
-      end
-    end
-  end
-
-  #
-  # Groups Area
-  #
-  resources :groups, constraints: { id: /(?:[^.]|\.(?!atom$))+/, format: /atom/ }  do
-    member do
-      get :issues
-      get :merge_requests
-      get :projects
-    end
-
-    scope module: :groups do
-      resources :group_members, only: [:index, :create, :update, :destroy] do
-        delete :leave, on: :collection
-      end
-
-      resource :avatar, only: [:destroy]
-      resources :milestones, only: [:index, :show, :update]
-    end
-  end
-
-  resources :projects, constraints: { id: /[^\/]+/ }, only: [:new, :create]
-
-  devise_for :users, controllers: { omniauth_callbacks: :omniauth_callbacks, registrations: :registrations , passwords: :passwords, sessions: :sessions, confirmations: :confirmations }
-
-  devise_scope :user do
-    get '/users/auth/:provider/omniauth_error' => 'omniauth_callbacks#omniauth_error', as: :omniauth_error
-  end
-
-  root to: "dashboard#show"
-
-  #
-  # Project Area
-  #
-  resources :namespaces, path: '/', constraints: { id: /[a-zA-Z.0-9_\-]+/ }, only: [] do
-    resources(:projects, constraints: { id: /[a-zA-Z.0-9_\-]+/ }, except:
-              [:new, :create, :index], path: "/") do
-      member do
-        put :transfer
-        post :archive
-        post :unarchive
-        post :toggle_star
-        post :markdown_preview
-        get :autocomplete_sources
-      end
-
-      scope module: :projects do
-        # Blob routes:
-        get '/new/*id', to: 'blob#new', constraints: { id: /.+/ }, as: 'new_blob'
-        post '/create/*id', to: 'blob#create', constraints: { id: /.+/ }, as: 'create_blob'
-        get '/edit/*id', to: 'blob#edit', constraints: { id: /.+/ }, as: 'edit_blob'
-        put '/update/*id', to: 'blob#update', constraints: { id: /.+/ }, as: 'update_blob'
-        post '/preview/*id', to: 'blob#preview', constraints: { id: /.+/ }, as: 'preview_blob'
-
-        scope do
-          get(
-            '/blob/*id/diff',
-            to: 'blob#diff',
-            constraints: { id: /.+/, format: false },
-            as: :blob_diff
-          )
-          get(
-            '/blob/*id',
-            to: 'blob#show',
-            constraints: { id: /.+/, format: false },
-            as: :blob
-          )
-          delete(
-            '/blob/*id',
-            to: 'blob#destroy',
-            constraints: { id: /.+/, format: false }
-          )
-        end
-
-        scope do
-          get(
-            '/raw/*id',
-            to: 'raw#show',
-            constraints: { id: /.+/, format: /(html|js)/ },
-            as: :raw
-          )
-        end
-
-        scope do
-          get(
-            '/tree/*id',
-            to: 'tree#show',
-            constraints: { id: /.+/, format: /(html|js)/ },
-            as: :tree
-          )
-        end
-
-        scope do
-          get(
-            '/blame/*id',
-            to: 'blame#show',
-            constraints: { id: /.+/, format: /(html|js)/ },
-            as: :blame
-          )
-        end
-
-        scope do
-          get(
-            '/commits/*id',
-            to: 'commits#show',
-            constraints: { id: /(?:[^.]|\.(?!atom$))+/, format: /atom/ },
-            as: :commits
-          )
-        end
-
-        resource  :avatar, only: [:show, :destroy]
-        resources :commit, only: [:show], constraints: { id: /[[:alnum:]]{6,40}/ } do
-          get :branches, on: :member
-        end
-
-        resources :compare, only: [:index, :create]
-        resources :network, only: [:show], constraints: { id: /(?:[^.]|\.(?!json$))+/, format: /json/ }
-
-        resources :graphs, only: [:show], constraints: { id: /(?:[^.]|\.(?!json$))+/, format: /json/ } do
-          member do
-            get :commits
-          end
-        end
-
-        get '/compare/:from...:to' => 'compare#show', :as => 'compare',
-            :constraints => { from: /.+/, to: /.+/ }
-
-        resources :snippets, constraints: { id: /\d+/ } do
-          member do
-            get 'raw'
-          end
-        end
-
-        resources :wikis, only: [:show, :edit, :destroy, :create], constraints: { id: /[a-zA-Z.0-9_\-\/]+/ } do
-          collection do
-            get :pages
-            put ':id' => 'wikis#update'
-            get :git_access
-          end
-
-          member do
-            get 'history'
-          end
-        end
-
-        resource :repository, only: [:show, :create] do
-          member do
-            get 'archive', constraints: { format: Gitlab::Regex.archive_formats_regex }
-          end
-        end
-
-        resources :services, constraints: { id: /[^\/]+/ }, only: [:index, :edit, :update] do
-          member do
-            get :test
-          end
-        end
-
-        resources :deploy_keys, constraints: { id: /\d+/ } do
-          member do
-            put :enable
-            put :disable
-          end
-        end
-
-        resource :fork, only: [:new, :create]
-        resource :import, only: [:new, :create, :show]
-
-        resources :refs, only: [] do
-          collection do
-            get 'switch'
-          end
-
-          member do
-            # tree viewer logs
-            get 'logs_tree', constraints: { id: Gitlab::Regex.git_reference_regex }
-            get 'logs_tree/:path' => 'refs#logs_tree', as: :logs_file, constraints: {
-              id: Gitlab::Regex.git_reference_regex,
-              path: /.*/
-            }
-          end
-        end
-
-        resources :merge_requests, constraints: { id: /\d+/ }, except: [:destroy] do
-          member do
-            get :diffs
-            post :automerge
-            get :automerge_check
-            get :ci_status
-            post :toggle_subscription
-          end
-
-          collection do
-            get :branch_from
-            get :branch_to
-            get :update_branches
-          end
-        end
-
-        resources :branches, only: [:index, :new, :create, :destroy], constraints: { id: Gitlab::Regex.git_reference_regex }
-        resources :tags, only: [:index, :new, :create, :destroy], constraints: { id: Gitlab::Regex.git_reference_regex }
-        resources :protected_branches, only: [:index, :create, :update, :destroy], constraints: { id: Gitlab::Regex.git_reference_regex }
-
-        resources :hooks, only: [:index, :create, :destroy], constraints: { id: /\d+/ } do
-          member do
-            get :test
-          end
-        end
-
-        resources :milestones, except: [:destroy], constraints: { id: /\d+/ } do
-          member do
-            put :sort_issues
-            put :sort_merge_requests
-          end
-        end
-
-        resources :labels, constraints: { id: /\d+/ } do
-          collection do
-            post :generate
-          end
-        end
-
-        resources :issues, constraints: { id: /\d+/ }, except: [:destroy] do
-          member do
-            post :toggle_subscription
-          end
-          collection do
-            post  :bulk_update
-          end
-        end
-
-        resources :project_members, except: [:new, :edit], constraints: { id: /[a-zA-Z.\/0-9_\-#%+]+/ } do
-          collection do
-            delete :leave
-
-            # Used for import team
-            # from another project
-            get :import
-            post :apply_import
-          end
-        end
-
-        resources :notes, only: [:index, :create, :destroy, :update], constraints: { id: /\d+/ } do
-          member do
-            delete :delete_attachment
-          end
-        end
-
-        resources :uploads, only: [:create] do
-          collection do
-            get ":secret/:filename", action: :show, as: :show, constraints: { filename: /.+/ }
-          end
-        end
-      end
-
-    end
-  end
-
-  get ':id' => 'namespaces#show', constraints: { id: /(?:[^.]|\.(?!atom$))+/, format: /atom/ }
+  get '*unmatched_route', to: 'application#not_found'
 end

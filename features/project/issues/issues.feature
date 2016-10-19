@@ -1,3 +1,4 @@
+@project_issues
 Feature: Project Issues
   Background:
     Given I sign in as a user
@@ -25,11 +26,18 @@ Feature: Project Issues
     Given I click link "Release 0.4"
     Then I should see issue "Release 0.4"
 
+  @javascript
+  Scenario: I filter by author
+    Given I add a user to project "Shop"
+    And I click "author" dropdown
+    Then I see current user as the first user
+
   Scenario: I submit new unassigned issue
     Given I click link "New Issue"
     And I submit new issue "500 error on profile"
     Then I should see issue "500 error on profile"
 
+  @javascript
   Scenario: I submit new unassigned issue with labels
     Given project "Shop" has labels: "bug", "feature", "enhancement"
     And I click link "New Issue"
@@ -42,6 +50,39 @@ Feature: Project Issues
     Given I visit issue page "Release 0.4"
     And I leave a comment like "XML attached"
     Then I should see comment "XML attached"
+    And I should see an error alert section within the comment form
+
+  @javascript
+  Scenario: Visiting Issues after being sorted the list
+    Given I visit project "Shop" issues page
+    And I sort the list by "Oldest updated"
+    And I visit my project's home page
+    And I visit project "Shop" issues page
+    Then The list should be sorted by "Oldest updated"
+
+  @javascript
+  Scenario: Visiting Merge Requests after being sorted the list
+    Given I visit project "Shop" issues page
+    And I sort the list by "Oldest updated"
+    And I visit project "Shop" merge requests page
+    Then The list should be sorted by "Oldest updated"
+
+  @javascript
+  Scenario: Visiting Merge Requests from a differente Project after sorting
+    Given I visit project "Shop" merge requests page
+    And I sort the list by "Oldest updated"
+    And I visit dashboard merge requests page
+    Then The list should be sorted by "Oldest updated"
+
+  @javascript
+  Scenario: Sort issues by upvotes/downvotes
+    Given project "Shop" have "Bugfix" open issue
+    And issue "Release 0.4" have 2 upvotes and 1 downvote
+    And issue "Tweet control" have 1 upvote and 2 downvotes
+    And I sort the list by "Most popular"
+    Then The list should be sorted by "Most popular"
+    And I sort the list by "Least popular"
+    Then The list should be sorted by "Least popular"
 
   @javascript
   Scenario: I search issue
@@ -113,6 +154,7 @@ Feature: Project Issues
 
   Scenario: Issues on empty project
     Given empty project "Empty Project"
+    And I have an ssh key
     When I visit empty project page
     And I see empty project details with ssh clone info
     When I visit empty project's issues page
@@ -127,47 +169,14 @@ Feature: Project Issues
     And I should see "Release 0.4" in issues
     And I should not see "Tweet control" in issues
 
-  Scenario: Issue description should render task checkboxes
-    Given project "Shop" has "Tasks-open" open issue with task markdown
-    When I visit issue page "Tasks-open"
-    Then I should see task checkboxes in the description
-
-  @javascript
-  Scenario: Issue notes should not render task checkboxes
-    Given project "Shop" has "Tasks-open" open issue with task markdown
-    When I visit issue page "Tasks-open"
-    And I leave a comment with task markdown
-    Then I should not see task checkboxes in the comment
-
   @javascript
   Scenario: Issue notes should be editable with +1
-    Given project "Shop" has "Tasks-open" open issue with task markdown
-    When I visit issue page "Tasks-open"
+    Given project "Shop" have "Release 0.4" open issue
+    When I visit issue page "Release 0.4"
     And I leave a comment with a header containing "Comment with a header"
     Then The comment with the header should not have an ID
     And I edit the last comment with a +1
     Then I should see +1 in the description
-
-  # Task status in issues list
-
-  Scenario: Issues list should display task status
-    Given project "Shop" has "Tasks-open" open issue with task markdown
-    When I visit project "Shop" issues page
-    Then I should see the task status for the Taskable
-
-  # Toggling task items
-
-  @javascript
-  Scenario: Task checkboxes should be enabled for an open issue
-    Given project "Shop" has "Tasks-open" open issue with task markdown
-    When I visit issue page "Tasks-open"
-    Then Task checkboxes should be enabled
-
-  @javascript
-  Scenario: Task checkboxes should be disabled for a closed issue
-    Given project "Shop" has "Tasks-closed" closed issue with task markdown
-    When I visit issue page "Tasks-closed"
-    Then Task checkboxes should be disabled
 
   # Issue description preview
 
@@ -205,8 +214,26 @@ Feature: Project Issues
 
   @javascript
   Scenario: I can unsubscribe from issue
-    Given project "Shop" has "Tasks-open" open issue with task markdown
-    When I visit issue page "Tasks-open"
+    Given project "Shop" have "Release 0.4" open issue
+    When I visit issue page "Release 0.4"
     Then I should see that I am subscribed
     When I click button "Unsubscribe"
     Then I should see that I am unsubscribed
+
+  @javascript
+  Scenario: I submit new unassigned issue as guest
+    Given public project "Community"
+    When I visit project "Community" page
+    And I visit project "Community" issues page
+    And I click link "New Issue"
+    And I should not see assignee field
+    And I should not see milestone field
+    And I should not see labels field
+    And I submit new issue "500 error on profile"
+    Then I should see issue "500 error on profile"
+
+  @javascript
+  Scenario: Another user adds a comment to issue I'm currently viewing
+    Given I visit issue page "Release 0.4"
+    And another user adds a comment with text "Yay!" to issue "Release 0.4"
+    Then I should see a new comment with text "Yay!"

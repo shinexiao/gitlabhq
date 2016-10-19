@@ -9,14 +9,18 @@ class Spinach::Features::DashboardArchivedProjects < Spinach::FeatureSteps
   end
 
   step 'I should see "Shop" project link' do
-    page.should have_link "Shop"
+    expect(page).to have_link "Shop"
   end
 
   step 'I should not see "Forum" project link' do
-    page.should_not have_link "Forum"
+    expect(page).not_to have_link "Forum"
   end
 
   step 'I should see "Forum" project link' do
-    page.should have_link "Forum"
+    expect(page).to have_link "Forum"
+  end
+
+  step 'I click "Show archived projects" link' do
+    click_link "Show archived projects"
   end
 end

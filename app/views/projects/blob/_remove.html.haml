@@ -1,22 +1,18 @@
-#modal-remove-blob.modal.hide
+#modal-remove-blob.modal
   .modal-dialog
     .modal-content
       .modal-header
         %a.close{href: "#", "data-dismiss" => "modal"} ×
-        %h3.page-title Remove #{@blob.name}
-        %p.light
-          From branch
-          %strong= @ref
+        %h3.page-title Delete #{@blob.name}
 
       .modal-body
-        = form_tag namespace_project_blob_path(@project.namespace, @project, @id), method: :delete, class: 'form-horizontal' do
-          = render 'shared/commit_message_container', params: params,
-                   placeholder: 'Removed this file because...'
+        = form_tag namespace_project_blob_path(@project.namespace, @project, @id), method: :delete, class: 'form-horizontal js-replace-blob-form js-quick-submit js-requires-input' do
+          = render 'shared/new_commit_form', placeholder: "Delete #{@blob.name}"
+
           .form-group
-            .col-sm-2
-            .col-sm-10
-              = button_tag 'Remove file', class: 'btn btn-remove btn-remove-file'
+            .col-sm-offset-2.col-sm-10
+              = button_tag 'Delete file', class: 'btn btn-remove btn-remove-file'
               = link_to "Cancel", '#', class: "btn btn-cancel", "data-dismiss" => "modal"
 
 :javascript
-  disableButtonIfEmptyField('#commit_message', '.btn-remove-file')
+  new NewCommitForm($('.js-replace-blob-form'))

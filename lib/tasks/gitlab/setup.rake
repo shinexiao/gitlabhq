@@ -1,5 +1,5 @@
 namespace :gitlab do
-  desc "GITLAB | Setup production application"
+  desc "GitLab | Setup production application"
   task setup: :environment do
     setup_db
   end
@@ -14,11 +14,12 @@ namespace :gitlab do
       puts ""
     end
 
-    Rake::Task["db:setup"].invoke
+    Rake::Task["db:reset"].invoke
     Rake::Task["add_limits_mysql"].invoke
+    Rake::Task["setup_postgresql"].invoke
     Rake::Task["db:seed_fu"].invoke
   rescue Gitlab::TaskAbortedByUserError
-    puts "Quitting...".red
+    puts "Quitting...".color(:red)
     exit 1
   end
 end

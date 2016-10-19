@@ -5,14 +5,15 @@ class DeleteTagService < BaseService
     repository = project.repository
     tag = repository.find_tag(tag_name)
 
-    # No such tag
     unless tag
       return error('No such tag', 404)
     end
 
     if repository.rm_tag(tag_name)
+      release = project.releases.find_by(tag: tag_name)
+      release.destroy if release
+
       push_data = build_push_data(tag)
-      
       EventCreateService.new.push(project, current_user, push_data)
       project.execute_hooks(push_data.dup, :tag_push_hooks)
       project.execute_services(push_data.dup, :tag_push_hooks)
@@ -24,19 +25,20 @@ class DeleteTagService < BaseService
   end
 
   def error(message, return_code = 400)
-    out = super(message)
-    out[:return_code] = return_code
-    out
+    super(message).merge(return_code: return_code)
   end
 
   def success(message)
-    out = super()
-    out[:message] = message
-    out
+    super().merge(message: message)
   end
 
   def build_push_data(tag)
-    Gitlab::PushDataBuilder
-      .build(project, current_user, tag.target, Gitlab::Git::BLANK_SHA, "#{Gitlab::Git::TAG_REF_PREFIX}#{tag.name}", [])
+    Gitlab::DataBuilder::Push.build(
+      project,
+      current_user,
+      tag.target.sha,
+      Gitlab::Git::BLANK_SHA,
+      "#{Gitlab::Git::TAG_REF_PREFIX}#{tag.name}",
+      [])
   end
 end

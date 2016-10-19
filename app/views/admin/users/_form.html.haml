@@ -1,27 +1,23 @@
 .user_new
   = form_for [:admin, @user], html: { class: 'form-horizontal fieldset-form' } do |f|
-    -if @user.errors.any?
-      #error_explanation
-        .alert.alert-danger
-          - @user.errors.full_messages.each do |msg|
-            %p= msg
+    = form_errors(@user)
 
     %fieldset
       %legend Account
       .form-group
         = f.label :name, class: 'control-label'
         .col-sm-10
-          = f.text_field :name, required: true, autocomplete: "off", class: 'form-control'
+          = f.text_field :name, required: true, autocomplete: 'off', class: 'form-control'
           %span.help-inline * required
       .form-group
         = f.label :username, class: 'control-label'
         .col-sm-10
-          = f.text_field :username, required: true, autocomplete: "off", class: 'form-control'
+          = f.text_field :username, required: true, autocomplete: 'off', autocorrect: 'off', autocapitalize: 'off', spellcheck: false, class: 'form-control'
           %span.help-inline * required
       .form-group
         = f.label :email, class: 'control-label'
         .col-sm-10
-          = f.text_field :email, required: true, autocomplete: "off", class: 'form-control'
+          = f.text_field :email, required: true, autocomplete: 'off', class: 'form-control'
           %span.help-inline * required
 
     - if @user.new_record?
@@ -48,7 +44,7 @@
       %legend Access
       .form-group
         = f.label :projects_limit, class: 'control-label'
-        .col-sm-10= f.number_field :projects_limit, class: 'form-control'
+        .col-sm-10= f.number_field :projects_limit, min: 0, class: 'form-control'
 
       .form-group
         = f.label :can_create_group, class: 'control-label'
@@ -58,9 +54,15 @@
         = f.label :admin, class: 'control-label'
         - if current_user == @user
           .col-sm-10= f.check_box :admin, disabled: true
-          .col-sm-10 You cannot remove your own admin rights
+          .col-sm-10 You cannot remove your own admin rights.
         - else
           .col-sm-10= f.check_box :admin
+
+      .form-group
+        = f.label :external, class: 'control-label'
+        .col-sm-10= f.check_box :external
+        .col-sm-10 External users cannot see internal or private projects unless access is explicitly granted. Also, external users cannot create projects or groups.
+
     %fieldset
       %legend Profile
       .form-group

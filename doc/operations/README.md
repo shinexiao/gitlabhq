@@ -1,4 +1,1 @@
-# GitLab operations
-
-- [Sidekiq MemoryKiller](sidekiq_memory_killer.md)
-- [Cleaning up Redis sessions](cleaning_up_redis_sessions.md)
+This document was moved to [administration/operations](../administration/operations.md).

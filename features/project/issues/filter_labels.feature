@@ -1,3 +1,4 @@
+@project_issues
 Feature: Project Issues Filter Labels
   Background:
     Given I sign in as a user
@@ -8,13 +9,10 @@ Feature: Project Issues Filter Labels
     And project "Shop" has issue "Feature1" with labels: "feature"
     Given I visit project "Shop" issues page
 
-  Scenario: I should see project issues
-    Then I should see "bug" in labels filter
-    And I should see "feature" in labels filter
-    And I should see "enhancement" in labels filter
-
+  @javascript
   Scenario: I filter by one label
     Given I click link "bug"
+    And I click "dropdown close button"
     Then I should see "Bugfix1" in issues list
     And I should see "Bugfix2" in issues list
     And I should not see "Feature1" in issues list

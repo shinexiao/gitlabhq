@@ -1,0 +1,11 @@
+- @no_container = true
+- page_title "Pipeline"
+= render "projects/pipelines/head"
+
+%div{ class: container_class }
+  .prepend-top-default
+    - if @commit
+      = render "projects/pipelines/info"
+    %div.block-connector
+
+  = render "projects/commit/pipeline", pipeline: @pipeline

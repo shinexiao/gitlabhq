@@ -1,55 +1,47 @@
 module Projects
   class ParticipantsService < BaseService
-    def initialize(project, user)
-      @project  = project
-      @user     = user
-    end
+    attr_reader :noteable
+    
+    def execute(noteable)
+      @noteable = noteable
 
-    def execute(note_type, note_id)
-      participating =
-        if note_type && note_id
-          participants_in(note_type, note_id)
-        else
-          []
-        end
-      project_members = sorted(@project.team.members)
-      participants = all_members + groups + project_members + participating
+      project_members = sorted(project.team.members)
+      participants = noteable_owner + participants_in_noteable + all_members + groups + project_members
       participants.uniq
     end
 
-    def participants_in(type, id)
-      users = case type
-              when "Issue"
-                issue = @project.issues.find_by_iid(id)
-                issue ? issue.participants : []
-              when "MergeRequest"
-                merge_request = @project.merge_requests.find_by_iid(id)
-                merge_request ? merge_request.participants : []
-              when "Commit"
-                author_ids = Note.for_commit_id(id).pluck(:author_id).uniq
-                User.where(id: author_ids)
-              else
-                []
-              end
+    def noteable_owner
+      return [] unless noteable && noteable.author.present?
+
+      [{
+        name: noteable.author.name,
+        username: noteable.author.username
+      }]
+    end
+
+    def participants_in_noteable
+      return [] unless noteable
+
+      users = noteable.participants(current_user)
       sorted(users)
     end
 
     def sorted(users)
-      users.uniq.to_a.compact.sort_by(&:username).map do |user| 
+      users.uniq.to_a.compact.sort_by(&:username).map do |user|
         { username: user.username, name: user.name }
       end
     end
 
     def groups
-      @user.authorized_groups.sort_by(&:path).map do |group| 
+      current_user.authorized_groups.sort_by(&:path).map do |group|
         count = group.users.count
-        { username: group.path, name: "#{group.name} (#{count})" }
+        { username: group.path, name: group.name, count: count }
       end
     end
 
     def all_members
-      count = @project.team.members.flatten.count
-      [{ username: "all", name: "All Project and Group Members (#{count})" }]
+      count = project.team.members.flatten.count
+      [{ username: "all", name: "All Project and Group Members", count: count }]
     end
   end
 end

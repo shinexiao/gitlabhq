@@ -6,10 +6,12 @@ Feature: Explore Projects
     And private project "Enterprise"
 
   Scenario: I visit public area
+    Given archived project "Archive"
     When I visit the public projects area
     Then I should see project "Community"
     And I should not see project "Internal"
     And I should not see project "Enterprise"
+    And I should not see project "Archive"
 
   Scenario: I visit public project page
     When I visit project "Community" page
@@ -29,19 +31,30 @@ Feature: Explore Projects
     Then I should see empty public project details
     And I should see empty public project details with http clone info
 
-  Scenario: I visit an empty public project page as user
+  Scenario: I visit an empty public project page as user with no ssh-keys
     Given I sign in as a user
+    And I have no ssh keys
+    And public empty project "Empty Public Project"
+    When I visit empty project page
+    Then I should see empty public project details
+    And I should see empty public project details with http clone info
+
+  Scenario: I visit an empty public project page as user with an ssh-key
+    Given I sign in as a user
+    And I have an ssh key
     And public empty project "Empty Public Project"
     When I visit empty project page
     Then I should see empty public project details
     And I should see empty public project details with ssh clone info
 
   Scenario: I visit public area as user
-    Given I sign in as a user
+    Given archived project "Archive"
+    And I sign in as a user
     When I visit the public projects area
     Then I should see project "Community"
     And I should see project "Internal"
     And I should not see project "Enterprise"
+    And I should not see project "Archive"
 
   Scenario: I visit internal project page as user
     Given I sign in as a user
@@ -53,8 +66,16 @@ Feature: Explore Projects
     Then I should see project "Community" home page
     And I should see an http link to the repository
 
-  Scenario: I visit public project page as user
+  Scenario: I visit public project page as user with no ssh-keys
     Given I sign in as a user
+    And I have no ssh keys
+    When I visit project "Community" page
+    Then I should see project "Community" home page
+    And I should see an http link to the repository
+
+  Scenario: I visit public project page as user with an ssh-key
+    Given I sign in as a user
+    And I have an ssh key
     When I visit project "Community" page
     Then I should see project "Community" home page
     And I should see an ssh link to the repository
@@ -66,6 +87,7 @@ Feature: Explore Projects
 
   Scenario: I visit public project issues page as a non authorized user
     Given I visit project "Community" page
+    Then I should not see command line instructions
     And I visit "Community" issues page
     Then I should see list of issues for "Community" project
 
@@ -102,15 +124,21 @@ Feature: Explore Projects
     Then I should see list of merge requests for "Internal" project
 
   Scenario: Trending page
-    Given I sign in as a user
+    Given archived project "Archive"
+    And project "Archive" has comments
+    And I sign in as a user
     And project "Community" has comments
+    And trending projects are refreshed
     When I visit the explore trending projects
     Then I should see project "Community"
     And I should not see project "Internal"
     And I should not see project "Enterprise"
+    And I should not see project "Archive"
 
   Scenario: Most starred page
-    Given I sign in as a user
+    Given archived project "Archive"
+    And I sign in as a user
     When I visit the explore starred projects
     Then I should see project "Community"
     And I should see project "Internal"
+    And I should not see project "Archive"

@@ -14,7 +14,7 @@ GitLab.com will generate an application ID and secret key for you to use.
 1.  Select "New application".
 
 1.  Provide the required details.
-    - Name: This can be anything. Consider something like "\<Organization\>'s GitLab" or "\<Your Name\>'s GitLab" or something else descriptive.
+    - Name: This can be anything. Consider something like `<Organization>'s GitLab` or `<Your Name>'s GitLab` or something else descriptive.
     - Redirect URI:
 
     ```
@@ -28,7 +28,7 @@ GitLab.com will generate an application ID and secret key for you to use.
 
 1.  You should now see a Client ID and Client Secret near the top right of the page (see screenshot). 
     Keep this page open as you continue configuration. 
-    ![GitLab app](gitlab_app.png)
+    ![GitLab app](img/gitlab_app.png)
 
 1.  On your GitLab server, open the configuration file.
 
@@ -38,7 +38,7 @@ GitLab.com will generate an application ID and secret key for you to use.
       sudo editor /etc/gitlab/gitlab.rb
     ```
 
-    For instalations from source:
+    For installations from source:
 
     ```sh
       cd /home/git/gitlab

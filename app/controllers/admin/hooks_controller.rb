@@ -22,7 +22,6 @@ class Admin::HooksController < Admin::ApplicationController
     redirect_to admin_hooks_path
   end
 
-
   def test
     @hook = SystemHook.find(params[:hook_id])
     data = {
@@ -33,12 +32,18 @@ class Admin::HooksController < Admin::ApplicationController
       owner_name: "Someone",
       owner_email: "example@gitlabhq.com"
     }
-    @hook.execute(data)
+    @hook.execute(data, 'system_hooks')
 
-    redirect_to :back
+    redirect_back_or_default
   end
 
   def hook_params
-    params.require(:hook).permit(:url)
+    params.require(:hook).permit(
+      :enable_ssl_verification,
+      :push_events,
+      :tag_push_events,
+      :token,
+      :url
+    )
   end
 end

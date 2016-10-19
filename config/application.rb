@@ -1,22 +1,32 @@
 require File.expand_path('../boot', __FILE__)
 
 require 'rails/all'
-require 'devise'
-I18n.config.enforce_available_locales = false
+
 Bundler.require(:default, Rails.env)
 
 module Gitlab
   class Application < Rails::Application
+    require_dependency Rails.root.join('lib/gitlab/redis')
+
     # Settings in config/environments/* take precedence over those specified here.
     # Application configuration should go into files in config/initializers
     # -- all .rb files in that directory are automatically loaded.
 
-    # Custom directories with classes and modules you want to be autoloadable.
-    config.autoload_paths.push(*%W(#{config.root}/lib
-                                   #{config.root}/app/models/hooks
-                                   #{config.root}/app/models/concerns
-                                   #{config.root}/app/models/project_services
-                                   #{config.root}/app/models/members))
+    # Sidekiq uses eager loading, but directories not in the standard Rails
+    # directories must be added to the eager load paths:
+    # https://github.com/mperham/sidekiq/wiki/FAQ#why-doesnt-sidekiq-autoload-my-rails-application-code
+    # Also, there is no need to add `lib` to autoload_paths since autoloading is
+    # configured to check for eager loaded paths:
+    # https://github.com/rails/rails/blob/v4.2.6/railties/lib/rails/engine.rb#L687
+    # This is a nice reference article on autoloading/eager loading:
+    # http://blog.arkency.com/2014/11/dont-forget-about-eager-load-when-extending-autoload
+    config.eager_load_paths.push(*%W(#{config.root}/lib
+                                     #{config.root}/app/models/ci
+                                     #{config.root}/app/models/hooks
+                                     #{config.root}/app/models/members
+                                     #{config.root}/app/models/project_services))
+
+    config.generators.templates.push("#{config.root}/generator_templates")
 
     # Only load the plugins named here, in the order given (default is alphabetical).
     # :all can be used as a placeholder for all plugins not explicitly named.
@@ -31,7 +41,32 @@ module Gitlab
     config.encoding = "utf-8"
 
     # Configure sensitive parameters which will be filtered from the log file.
-    config.filter_parameters.push(:password, :password_confirmation, :private_token)
+    #
+    # Parameters filtered:
+    # - Password (:password, :password_confirmation)
+    # - Private tokens (:private_token)
+    # - Two-factor tokens (:otp_attempt)
+    # - Repo/Project Import URLs (:import_url)
+    # - Build variables (:variables)
+    # - GitLab Pages SSL cert/key info (:certificate, :encrypted_key)
+    # - Webhook URLs (:hook)
+    # - GitLab-shell secret token (:secret_token)
+    # - Sentry DSN (:sentry_dsn)
+    # - Deploy keys (:key)
+    config.filter_parameters += %i(
+      certificate
+      encrypted_key
+      hook
+      import_url
+      key
+      otp_attempt
+      password
+      password_confirmation
+      private_token
+      secret_token
+      sentry_dsn
+      variables
+    )
 
     # Enable escaping HTML in JSON.
     config.active_support.escape_html_entities_in_json = true
@@ -43,62 +78,72 @@ module Gitlab
 
     # Enable the asset pipeline
     config.assets.enabled = true
-    config.assets.paths << Emoji.images_path
-    config.assets.precompile << "emoji/*.png"
+    config.assets.paths << Gemojione.images_path
+    config.assets.precompile << "*.png"
     config.assets.precompile << "print.css"
+    config.assets.precompile << "notify.css"
+    config.assets.precompile << "mailers/*.css"
+    config.assets.precompile << "graphs/graphs_bundle.js"
+    config.assets.precompile << "users/users_bundle.js"
+    config.assets.precompile << "network/network_bundle.js"
+    config.assets.precompile << "profile/profile_bundle.js"
+    config.assets.precompile << "diff_notes/diff_notes_bundle.js"
+    config.assets.precompile << "boards/boards_bundle.js"
+    config.assets.precompile << "boards/test_utils/simulate_drag.js"
+    config.assets.precompile << "blob_edit/blob_edit_bundle.js"
+    config.assets.precompile << "snippet/snippet_bundle.js"
+    config.assets.precompile << "lib/utils/*.js"
+    config.assets.precompile << "lib/*.js"
+    config.assets.precompile << "u2f.js"
 
     # Version of your assets, change this if you want to expire all your assets
     config.assets.version = '1.0'
 
     config.action_view.sanitized_allowed_protocols = %w(smb)
 
-    # Relative url support
-    # Uncomment and customize the last line to run in a non-root path
-    # WARNING: We recommend creating a FQDN to host GitLab in a root path instead of this.
-    # Note that following settings need to be changed for this to work.
-    # 1) In your application.rb file: config.relative_url_root = "/gitlab"
-    # 2) In your gitlab.yml file: relative_url_root: /gitlab
-    # 3) In your unicorn.rb: ENV['RAILS_RELATIVE_URL_ROOT'] = "/gitlab"
-    # 4) In ../gitlab-shell/config.yml: gitlab_url: "http://127.0.0.1/gitlab"
-    # 5) In lib/support/nginx/gitlab : do not use asset gzipping, remove block starting with "location ~ ^/(assets)/"
-    #
-    # To update the path, run: sudo -u git -H bundle exec rake assets:precompile RAILS_ENV=production
-    #
-    # config.relative_url_root = "/gitlab"
-
-    config.middleware.use Rack::Attack
+    config.middleware.insert_before Warden::Manager, Rack::Attack
 
     # Allow access to GitLab API from other domains
-    config.middleware.use Rack::Cors do
+    config.middleware.insert_before Warden::Manager, Rack::Cors do
+      allow do
+        origins Gitlab.config.gitlab.url
+        resource '/api/*',
+          credentials: true,
+          headers: :any,
+          methods: :any,
+          expose: ['Link']
+      end
+
+      # Cross-origin requests must not have the session cookie available
       allow do
         origins '*'
         resource '/api/*',
+          credentials: false,
           headers: :any,
-          methods: [:get, :post, :options, :put, :delete],
+          methods: :any,
           expose: ['Link']
       end
     end
 
     # Use Redis caching across all environments
-    redis_config_file = Rails.root.join('config', 'resque.yml')
-
-    redis_url_string = if File.exists?(redis_config_file)
-                         YAML.load_file(redis_config_file)[Rails.env]
-                       else
-                         "redis://localhost:6379"
-                       end
-
-    # Redis::Store does not handle Unix sockets well, so let's do it for them
-    redis_config_hash = Redis::Store::Factory.extract_host_options_from_uri(redis_url_string)
-    redis_uri = URI.parse(redis_url_string)
-    if redis_uri.scheme == 'unix'
-      redis_config_hash[:path] = redis_uri.path
+    redis_config_hash = Gitlab::Redis.params
+    redis_config_hash[:namespace] = Gitlab::Redis::CACHE_NAMESPACE
+    redis_config_hash[:expires_in] = 2.weeks # Cache should not grow forever
+    if Sidekiq.server? # threaded context
+      redis_config_hash[:pool_size] = Sidekiq.options[:concurrency] + 5
+      redis_config_hash[:pool_timeout] = 1
     end
-
-    redis_config_hash[:namespace] = 'cache:gitlab'
     config.cache_store = :redis_store, redis_config_hash
+
+    config.active_record.raise_in_transactional_callbacks = true
+
+    config.active_job.queue_adapter = :sidekiq
 
     # This is needed for gitlab-shell
     ENV['GITLAB_PATH_OUTSIDE_HOOK'] = ENV['PATH']
+
+    config.generators do |g|
+      g.factory_girl false
+    end
   end
 end

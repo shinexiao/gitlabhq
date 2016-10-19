@@ -1,9 +1,19 @@
-.tree-ref-holder
-  = render 'shared/ref_switcher', destination: 'tree', path: @path
+- @no_container = true
 
-- if can? current_user, :download_code, @project
-  .tree-download-holder
-    = render 'projects/repositories/download_archive', ref: @ref, btn_class: 'btn-group-sm pull-right hidden-xs hidden-sm', split_button: true
+- page_title @path.presence || "Files", @ref
+= content_for :meta_tags do
+  - if current_user
+    = auto_discovery_link_tag(:atom, namespace_project_commits_url(@project.namespace, @project, @ref, format: :atom, private_token: current_user.private_token), title: "#{@project.name}:#{@ref} commits")
+= render "projects/commits/head"
+= render 'projects/last_push'
 
-#tree-holder.tree-holder.clearfix
-  = render "tree", tree: @tree
+%div{ class: container_class }
+  .tree-controls
+    = render 'projects/find_file_link'
+    = render 'projects/buttons/download', project: @project, ref: @ref
+
+  #tree-holder.tree-holder.clearfix
+    .nav-block
+      = render 'projects/tree/tree_header', tree: @tree
+
+    = render 'projects/tree/tree_content', tree: @tree

@@ -1,52 +1,60 @@
-%li{ id: dom_id(issue), class: issue_css_classes(issue), url: issue_path(issue) }
-  - if controller.controller_name == 'issues'
+%li{ id: dom_id(issue), class: issue_css_classes(issue), url: issue_path(issue), data: { labels: issue.label_ids, id: issue.id } }
+  - if @bulk_edit
     .issue-check
-      = check_box_tag dom_id(issue,"selected"), nil, false, 'data-id' => issue.id, class: "selected_issue", disabled: !can?(current_user, :modify_issue, issue)
+      = check_box_tag dom_id(issue, "selected"), nil, false, 'data-id' => issue.id, class: "selected_issue"
 
-  .issue-title
-    %span.str-truncated
-      = link_to_gfm issue.title, issue_path(issue), class: "row_title"
-    .pull-right.light
+  .issue-title.title
+    %span.issue-title-text
+      = confidential_icon(issue)
+      = link_to issue.title, issue_path(issue)
+    %ul.controls
       - if issue.closed?
-        %span
+        %li
           CLOSED
+
+      - if issue.assignee
+        %li
+          = link_to_member(@project, issue.assignee, name: false, title: "Assigned to :name")
+
+      - upvotes, downvotes = issue.upvotes, issue.downvotes
+      - if upvotes > 0
+        %li
+          = icon('thumbs-up')
+          = upvotes
+
+      - if downvotes > 0
+        %li
+          = icon('thumbs-down')
+          = downvotes
+
       - note_count = issue.notes.user.count
-      - if note_count > 0
-        &nbsp;
-        %span
-          %i.fa.fa-comments
+      %li
+        = link_to issue_path(issue, anchor: 'notes'), class: ('no-comments' if note_count.zero?) do
+          = icon('comments')
           = note_count
 
   .issue-info
-    = link_to "##{issue.iid}", issue_path(issue), class: "light"
-    - if issue.assignee
-      assigned to #{link_to_member(@project, issue.assignee)}
-    - if issue.votes_count > 0
-      = render 'votes/votes_inline', votable: issue
+    #{issue.to_reference} &middot;
+    opened #{time_ago_with_tooltip(issue.created_at, placement: 'bottom')}
+    by #{link_to_member(@project, issue.author, avatar: false)}
     - if issue.milestone
-      %span
-        %i.fa.fa-clock-o
+      &nbsp;
+      = link_to namespace_project_issues_path(issue.project.namespace, issue.project, milestone_title: issue.milestone.title) do
+        = icon('clock-o')
         = issue.milestone.title
+    - if issue.due_date
+      %span{class: "#{'cred' if issue.overdue?}"}
+        &nbsp;
+        = icon('calendar')
+        = issue.due_date.to_s(:medium)
+    - if issue.labels.any?
+      &nbsp;
+      - issue.labels.each do |label|
+        = link_to_label(label, project: issue.project)
     - if issue.tasks?
+      &nbsp;
       %span.task-status
         = issue.task_status
 
     .pull-right.issue-updated-at
-      %small updated #{time_ago_with_tooltip(issue.updated_at, 'bottom', 'issue_update_ago')}
-
-    .issue-labels
-      - issue.labels.each do |label|
-        = link_to namespace_project_issues_path(issue.project.namespace, issue.project, label_name: label.name) do
-          = render_colored_label(label)
-
-  .issue-actions
-    - if can? current_user, :modify_issue, issue
-      - if issue.closed?
-        = link_to 'Reopen', issue_path(issue, issue: {state_event: :reopen }, status_only: true), method: :put,  class: "btn btn-sm btn-grouped reopen_issue btn-reopen", remote: true
-      - else
-        = link_to 'Close', issue_path(issue, issue: {state_event: :close }, status_only: true), method: :put, class: "btn btn-sm btn-grouped close_issue btn-close", remote: true
-      = link_to edit_namespace_project_issue_path(issue.project.namespace, issue.project, issue), class: "btn btn-sm edit-issue-link btn-grouped" do
-        %i.fa.fa-pencil-square-o
-        Edit
-
-
+      %span updated #{time_ago_with_tooltip(issue.updated_at, placement: 'bottom', html_class: 'issue_update_ago')}

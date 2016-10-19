@@ -1,23 +1,42 @@
-= render "head"
+- @no_container = true
 
-.tree-ref-holder
-  = render 'shared/ref_switcher', destination: 'commits'
+- page_title "Commits", @ref
+= content_for :meta_tags do
+  - if current_user
+    = auto_discovery_link_tag(:atom, namespace_project_commits_url(@project.namespace, @project, @ref, format: :atom, private_token: current_user.private_token), title: "#{@project.name}:#{@ref} commits")
 
-- if current_user && current_user.private_token
-  .commits-feed-holder.hidden-xs.hidden-sm
-    = link_to namespace_project_commits_path(@project.namespace, @project, @ref, {format: :atom, private_token: current_user.private_token}), title: "Feed", class: 'btn' do
-      %i.fa.fa-rss
-      Commits feed
+= content_for :sub_nav do
+  = render "head"
 
-%ul.breadcrumb.repo-breadcrumb
-  = commits_breadcrumbs
+%div{ class: container_class }
+  .row-content-block.second-block.content-component-block
+    .tree-ref-holder
+      = render 'shared/ref_switcher', destination: 'commits'
 
-%div{id: dom_id(@project)}
-  #commits-list= render "commits", project: @project
-.clear
-= spinner
+    .block-controls.hidden-xs.hidden-sm
+      - if @merge_request.present?
+        .control
+          = link_to "View Open Merge Request", namespace_project_merge_request_path(@project.namespace, @project, @merge_request), class: 'btn'
+      - elsif create_mr_button?(@repository.root_ref, @ref)
+        .control
+          = link_to create_mr_path(@repository.root_ref, @ref), class: 'btn btn-success' do
+            = icon('plus')
+            Create Merge Request
 
-- if @commits.count == @limit
-  :javascript
-    CommitsList.init("#{@ref}", #{@limit});
+      .control
+        = form_tag(namespace_project_commits_path(@project.namespace, @project, @id), method: :get, class: 'commits-search-form') do
+          = search_field_tag :search, params[:search], { placeholder: 'Filter by commit message', id: 'commits-search', class: 'form-control search-text-input input-short', spellcheck: false }
+      - if current_user && current_user.private_token
+        .control
+          = link_to namespace_project_commits_path(@project.namespace, @project, @ref, {format: :atom, private_token: current_user.private_token}), title: "Commits Feed", class: 'btn' do
+            = icon("rss")
+    %ul.breadcrumb.repo-breadcrumb
+      = commits_breadcrumbs
 
+  %div{id: dom_id(@project)}
+    %ol#commits-list.list-unstyled.content_list
+      = render "commits", project: @project
+  = spinner
+
+:javascript
+  CommitsList.init(#{@limit});

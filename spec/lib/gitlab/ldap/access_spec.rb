@@ -1,54 +1,108 @@
 require 'spec_helper'
 
-describe Gitlab::LDAP::Access do
+describe Gitlab::LDAP::Access, lib: true do
   let(:access) { Gitlab::LDAP::Access.new user }
   let(:user) { create(:omniauth_user) }
 
-  describe :allowed? do
+  describe '#allowed?' do
     subject { access.allowed? }
 
     context 'when the user cannot be found' do
-      before { Gitlab::LDAP::Person.stub(find_by_dn: nil) }
+      before do
+        allow(Gitlab::LDAP::Person).to receive(:find_by_dn).and_return(nil)
+      end
 
       it { is_expected.to be_falsey }
+
+      it 'should block user in GitLab' do
+        access.allowed?
+        expect(user).to be_blocked
+        expect(user).to be_ldap_blocked
+      end
     end
 
     context 'when the user is found' do
-      before { Gitlab::LDAP::Person.stub(find_by_dn: :ldap_user) }
+      before do
+        allow(Gitlab::LDAP::Person).to receive(:find_by_dn).and_return(:ldap_user)
+      end
 
-      context 'and the user is diabled via active directory' do
-        before { Gitlab::LDAP::Person.stub(disabled_via_active_directory?: true) }
+      context 'and the user is disabled via active directory' do
+        before do
+          allow(Gitlab::LDAP::Person).to receive(:disabled_via_active_directory?).and_return(true)
+        end
 
         it { is_expected.to be_falsey }
 
-        it "should block user in GitLab" do
+        it 'blocks user in GitLab' do
           access.allowed?
-          user.should be_blocked
+          expect(user).to be_blocked
+          expect(user).to be_ldap_blocked
         end
       end
 
       context 'and has no disabled flag in active diretory' do
         before do
-          user.block
-          
-          Gitlab::LDAP::Person.stub(disabled_via_active_directory?: false)
+          allow(Gitlab::LDAP::Person).to receive(:disabled_via_active_directory?).and_return(false)
         end
 
         it { is_expected.to be_truthy }
 
-        it "should unblock user in GitLab" do
-          access.allowed?
-          user.should_not be_blocked
+        context 'when auto-created users are blocked' do
+          before do
+            user.block
+          end
+
+          it 'does not unblock user in GitLab' do
+            access.allowed?
+            expect(user).to be_blocked
+            expect(user).not_to be_ldap_blocked # this block is handled by omniauth not by our internal logic
+          end
+        end
+
+        context 'when auto-created users are not blocked' do
+          before do
+            user.ldap_block
+          end
+
+          it 'unblocks user in GitLab' do
+            access.allowed?
+            expect(user).not_to be_blocked
+          end
         end
       end
 
       context 'without ActiveDirectory enabled' do
         before do
-          Gitlab::LDAP::Config.stub(enabled?: true)
-          Gitlab::LDAP::Config.any_instance.stub(active_directory: false)
+          allow(Gitlab::LDAP::Config).to receive(:enabled?).and_return(true)
+          allow_any_instance_of(Gitlab::LDAP::Config).to receive(:active_directory).and_return(false)
         end
 
         it { is_expected.to be_truthy }
+
+        context 'when user cannot be found' do
+          before do
+            allow(Gitlab::LDAP::Person).to receive(:find_by_dn).and_return(nil)
+          end
+
+          it { is_expected.to be_falsey }
+
+          it 'blocks user in GitLab' do
+            access.allowed?
+            expect(user).to be_blocked
+            expect(user).to be_ldap_blocked
+          end
+        end
+
+        context 'when user was previously ldap_blocked' do
+          before do
+            user.ldap_block
+          end
+
+          it 'unblocks the user if it exists' do
+            access.allowed?
+            expect(user).not_to be_blocked
+          end
+        end
       end
     end
   end

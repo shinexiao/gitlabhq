@@ -1,38 +1,49 @@
 %ul.nav.nav-sidebar
-  = nav_link(path: 'dashboard#show', html_options: {class: 'home'}) do
-    = link_to root_path, title: 'Home', class: 'shortcuts-activity' do
-      %i.fa.fa-dashboard
+  = nav_link(path: ['root#index', 'projects#trending', 'projects#starred', 'dashboard/projects#index'], html_options: {class: "#{project_tab_class} home"}) do
+    = link_to dashboard_projects_path, title: 'Projects', class: 'dashboard-shortcuts-projects' do
       %span
-        Your Projects
-  = nav_link(path: 'projects#starred') do
-    = link_to starred_dashboard_projects_path, title: 'Starred Projects' do
-      %i.fa.fa-star
+        Projects
+  = nav_link(controller: :todos) do
+    = link_to dashboard_todos_path, title: 'Todos' do
       %span
-        Starred Projects
-  = nav_link(controller: :groups) do
+        Todos
+        %span.count= number_with_delimiter(todos_pending_count)
+  = nav_link(path: 'dashboard#activity') do
+    = link_to activity_dashboard_path, class: 'dashboard-shortcuts-activity', title: 'Activity' do
+      %span
+        Activity
+  - if koding_enabled?
+    = nav_link(controller: :koding) do
+      = link_to koding_path, title: 'Koding' do
+        %span
+          Koding
+  = nav_link(controller: [:groups, 'groups/milestones', 'groups/group_members']) do
     = link_to dashboard_groups_path, title: 'Groups' do
-      %i.fa.fa-group
       %span
         Groups
-  = nav_link(controller: :milestones) do
+  = nav_link(controller: 'dashboard/milestones') do
     = link_to dashboard_milestones_path, title: 'Milestones' do
-      %i.fa.fa-clock-o
       %span
         Milestones
   = nav_link(path: 'dashboard#issues') do
-    = link_to assigned_issues_dashboard_path, title: 'Issues', class: 'shortcuts-issues' do
-      %i.fa.fa-exclamation-circle
+    = link_to assigned_issues_dashboard_path, title: 'Issues', class: 'dashboard-shortcuts-issues' do
       %span
         Issues
-        %span.count= current_user.assigned_issues.opened.count
+        %span.count= number_with_delimiter(current_user.assigned_issues.opened.count)
   = nav_link(path: 'dashboard#merge_requests') do
-    = link_to assigned_mrs_dashboard_path, title: 'Merge Requests', class: 'shortcuts-merge_requests' do
-      %i.fa.fa-tasks
+    = link_to assigned_mrs_dashboard_path, title: 'Merge Requests', class: 'dashboard-shortcuts-merge_requests' do
       %span
         Merge Requests
-        %span.count= current_user.assigned_merge_requests.opened.count
+        %span.count= number_with_delimiter(current_user.assigned_merge_requests.opened.count)
+  = nav_link(controller: 'dashboard/snippets') do
+    = link_to dashboard_snippets_path, title: 'Snippets' do
+      %span
+        Snippets
   = nav_link(controller: :help) do
     = link_to help_path, title: 'Help' do
-      %i.fa.fa-question-circle
       %span
         Help
+  = nav_link(html_options: {class: profile_tab_class}) do
+    = link_to profile_path, title: 'Profile Settings', data: {placement: 'bottom'} do
+      %span
+        Profile Settings

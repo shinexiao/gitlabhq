@@ -8,8 +8,8 @@ class Spinach::Features::ProjectCommitsBranches < Spinach::FeatureSteps
   end
 
   step 'I should see "Shop" all branches list' do
-    page.should have_content "Branches"
-    page.should have_content "master"
+    expect(page).to have_content "Branches"
+    expect(page).to have_content "master"
   end
 
   step 'I click link "Protected"' do
@@ -17,15 +17,15 @@ class Spinach::Features::ProjectCommitsBranches < Spinach::FeatureSteps
   end
 
   step 'I should see "Shop" protected branches list' do
-    within ".protected-branches-list" do
-      page.should have_content "stable"
-      page.should_not have_content "master"
+    page.within ".protected-branches-list" do
+      expect(page).to have_content "stable"
+      expect(page).not_to have_content "master"
     end
   end
 
   step 'project "Shop" has protected branches' do
     project = Project.find_by(name: "Shop")
-    project.protected_branches.create(name: "stable")
+    create(:protected_branch, project: project, name: "stable")
   end
 
   step 'I click new branch link' do
@@ -57,29 +57,35 @@ class Spinach::Features::ProjectCommitsBranches < Spinach::FeatureSteps
   end
 
   step 'I should see new branch created' do
-    page.should have_content 'deploy_keys'
+    expect(page).to have_content 'deploy_keys'
   end
 
   step 'I should see new an error that branch is invalid' do
-    page.should have_content 'Branch name invalid'
+    expect(page).to have_content 'Branch name is invalid'
+    expect(page).to have_content "can't contain spaces"
   end
 
   step 'I should see new an error that ref is invalid' do
-    page.should have_content 'Invalid reference name'
+    expect(page).to have_content 'Invalid reference name'
   end
 
   step 'I should see new an error that branch already exists' do
-    page.should have_content 'Branch already exists'
+    expect(page).to have_content 'Branch already exists'
+  end
+
+  step 'I filter for branch improve/awesome' do
+    fill_in 'branch-search', with: 'improve/awesome'
+    find('#branch-search').native.send_keys(:enter)
   end
 
   step "I click branch 'improve/awesome' delete link" do
-    within '.js-branch-improve\/awesome' do
+    page.within '.js-branch-improve\/awesome' do
       find('.btn-remove').click
       sleep 0.05
     end
   end
 
   step "I should not see branch 'improve/awesome'" do
-    all(visible: true).should_not have_content 'improve/awesome'
+    expect(page.all(visible: true)).not_to have_content 'improve/awesome'
   end
 end

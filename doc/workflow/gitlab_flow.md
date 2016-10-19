@@ -7,7 +7,7 @@ This allows a wide variety of branching strategies and workflows.
 Almost all of these are an improvement over the methods used before git.
 But many organizations end up with a workflow that is not clearly defined, overly complex or not integrated with issue tracking systems.
 Therefore we propose the GitLab flow as clearly defined set of best practices.
-It combines [feature driven development](http://en.wikipedia.org/wiki/Feature-driven_development) and [feature branches](http://martinfowler.com/bliki/FeatureBranch.html) with issue tracking.
+It combines [feature driven development](https://en.wikipedia.org/wiki/Feature-driven_development) and [feature branches](http://martinfowler.com/bliki/FeatureBranch.html) with issue tracking.
 
 Organizations coming to git from other version control systems frequently find it hard to develop an effective workflow.
 This article describes the GitLab flow that integrates the git workflow with an issue tracking system.
@@ -16,7 +16,7 @@ It offers a simple, transparent and effective way to work with git.
 ![Four stages (working copy, index, local repo, remote repo) and three steps between them](four_stages.png)
 
 When converting to git you have to get used to the fact that there are three steps before a commit is shared with colleagues.
-Most version control systems have only step, committing from the working copy to a shared server.
+Most version control systems have only one step, committing from the working copy to a shared server.
 In git you add files from the working copy to the staging area. After that you commit them to the local repo.
 The third step is pushing to a shared remote repository.
 After getting used to these three steps the branching model becomes the challenge.
@@ -26,12 +26,12 @@ After getting used to these three steps the branching model becomes the challeng
 Since many organizations new to git have no conventions how to work with it, it can quickly become a mess.
 The biggest problem they run into is that many long running branches that each contain part of the changes are around.
 People have a hard time figuring out which branch they should develop on or deploy to production.
-Frequently the reaction to this problem is to adopt a standardized pattern such as [git flow](http://nvie.com/posts/a-successful-git-branching-model/) and [GitHub flow](http://scottchacon.com/2011/08/31/github-flow.html)
+Frequently the reaction to this problem is to adopt a standardized pattern such as [git flow](http://nvie.com/posts/a-successful-git-branching-model/) and [GitHub flow](http://scottchacon.com/2011/08/31/github-flow.html).
 We think there is still room for improvement and will detail a set of practices we call GitLab flow.
 
 ## Git flow and its problems
 
-[![Git Flow timeline by Vincent Driessen, used with permission](gitdashflow.png)
+![Git Flow timeline by Vincent Driessen, used with permission](gitdashflow.png)
 
 Git flow was one of the first proposals to use git branches and it has gotten a lot of attention.
 It advocates a master branch and a separate develop branch as well as supporting branches for features, releases and hotfixes.
@@ -54,7 +54,7 @@ And doing releases doesn't automatically mean also doing hotfixes.
 
 ![Master branch with feature branches merged in](github_flow.png)
 
- In reaction to git flow a simpler alternative was detailed, [GitHub flow](https://guides.github.com/introduction/flow/index.html).
+In reaction to git flow a simpler alternative was detailed, [GitHub flow](https://guides.github.com/introduction/flow/index.html).
 This flow has only feature branches and a master branch.
 This is very simple and clean, many organizations have adopted it with great success.
 Atlassian recommends [a similar strategy](http://blogs.atlassian.com/2014/01/simple-git-workflow-simple/) although they rebase feature branches.
@@ -89,9 +89,9 @@ In this case the master branch is deployed on staging. When someone wants to dep
 And going live with code happens by merging the pre-production branch into the production branch.
 This workflow where commits only flow downstream ensures that everything has been tested on all environments.
 If you need to cherry-pick a commit with a hotfix it is common to develop it on a feature branch and merge it into master with a merge request, do not delete the feature branch.
-If master is good to go (it should be if you a practicing [continuous delivery](http://martinfowler.com/bliki/ContinuousDelivery.html)) you then merge it to the other branches.
+If master is good to go (it should be if you are practicing [continuous delivery](http://martinfowler.com/bliki/ContinuousDelivery.html)) you then merge it to the other branches.
 If this is not possible because more manual testing is required you can send merge requests from the feature branch to the downstream branches.
-An 'extreme' version of environment branches are setting up an environment for each feature branch as done by [Teatro](http://teatro.io/).
+An 'extreme' version of environment branches are setting up an environment for each feature branch as done by [Teatro](https://teatro.io/).
 
 ## Release branches with GitLab flow
 
@@ -104,7 +104,7 @@ By branching as late as possible you minimize the time you have to apply bug fix
 After a release branch is announced, only serious bug fixes are included in the release branch.
 If possible these bug fixes are first merged into master and then cherry-picked into the release branch.
 This way you can't forget to cherry-pick them into master and encounter the same bug on subsequent releases.
-This is called an 'upstream first' policy that is also practiced by [Google](http://www.chromium.org/chromium-os/chromiumos-design-docs/upstream-first) and [Red Hat](http://www.redhat.com/about/news/archive/2013/5/a-community-for-using-openstack-with-red-hat-rdo).
+This is called an 'upstream first' policy that is also practiced by [Google](https://www.chromium.org/chromium-os/chromiumos-design-docs/upstream-first) and [Red Hat](https://www.redhat.com/about/news/archive/2013/5/a-community-for-using-openstack-with-red-hat-rdo).
 Every time a bug-fix is included in a release branch the patch version is raised (to comply with [Semantic Versioning](http://semver.org/)) by setting a new tag.
 Some projects also have a stable branch that points to the same commit as the latest released branch.
 In this flow it is not common to have a production branch (or git flow master branch).
@@ -115,7 +115,7 @@ In this flow it is not common to have a production branch (or git flow master br
 
 Merge or pull requests are created in a git management application and ask an assigned person to merge two branches.
 Tools such as GitHub and Bitbucket choose the name pull request since the first manual action would be to pull the feature branch.
-Tools such as GitLab and Gitorious choose the name merge request since that is the final action that is requested of the assignee.
+Tools such as GitLab and others choose the name merge request since that is the final action that is requested of the assignee.
 In this article we'll refer to them as merge requests.
 
 If you work on a feature branch for more than a few hours it is good to share the intermediate result with the rest of the team.
@@ -131,7 +131,7 @@ When you feel comfortable with it to be merged you assign it to the person that 
 There is room for more feedback and after the assigned person feels comfortable with the result the branch is merged.
 If the assigned person does not feel comfortable they can close the merge request without merging.
 
-In GitLab it is common to protect the long-lived branches (e.g. the master branch) so that normal developers [can't modify these protected branches](https://gitlab.com/gitlab-org/gitlab-ce/blob/master/doc/permissions/permissions.md).
+In GitLab it is common to protect the long-lived branches (e.g. the master branch) so that normal developers [can't modify these protected branches](http://docs.gitlab.com/ce/permissions/permissions.html).
 So if you want to merge it into a protected branch you assign it to someone with master authorizations.
 
 ## Issues with GitLab flow
@@ -152,9 +152,10 @@ The name of this branch should start with the issue number, for example '15-requ
 
 When you are done or want to discuss the code you open a merge request.
 This is an online place to discuss the change and review the code.
-Creating a branch is a manual action since you do not always want to merge a new branch you push, it could be a long-running environment or release branch.
-If you create the merge request but do not assign it to anyone it is a 'work-in-process' merge request.
+Opening a merge request is a manual action since you do not always want to merge a new branch you push, it could be a long-running environment or release branch.
+If you open the merge request but do not assign it to anyone it is a 'Work In Progress' merge request.
 These are used to discuss the proposed implementation but are not ready for inclusion in the master branch yet.
+_Pro tip:_ Start the title of the merge request with `[WIP]` or `WIP:` to prevent it from being merged before it's ready.
 
 When the author thinks the code is ready the merge request is assigned to reviewer.
 The reviewer presses the merge button when they think the code is ready for inclusion in the master branch.
@@ -185,13 +186,16 @@ If you have an issue that spans across multiple repositories, the best thing is 
 
 ![Vim screen showing the rebase view](rebase.png)
 
-With git you can use an interactive rebase (rebase -i) to squash multiple commits into one and reorder them.
+With git you can use an interactive rebase (`rebase -i`) to squash multiple commits into one and reorder them.
+In GitLab EE and .com you can also [rebase before merge](http://docs.gitlab.com/ee/workflow/rebase_before_merge.html) from the web interface.
 This functionality is useful if you made a couple of commits for small changes during development and want to replace them with a single commit or if you want to make the order more logical.
 However you should never rebase commits you have pushed to a remote server.
 Somebody can have referred to the commits or cherry-picked them.
 When you rebase you change the identifier (SHA-1) of the commit and this is confusing.
 If you do that the same change will be known under multiple identifiers and this can cause much confusion.
 If people already reviewed your code it will be hard for them to review only the improvements you made since then if you have rebased everything into one commit.
+Another reasons not to rebase is that you lose authorship information, maybe someone created a merge request, another person pushed a commit on there to improve it and a third one merged it.
+In this case rebasing all the commits into one prevent the other authors from being properly attributed and sharing part of the [git blame](https://git-scm.com/docs/git-blame).
 
 People are encouraged to commit often and to frequently push to the remote repository so other people are aware what everyone is working on.
 This will lead to many commits per change which makes the history harder to understand.
@@ -200,7 +204,7 @@ And to understand a change in context one can always look at the merge commit th
 
 After you merge multiple commits from a feature branch into the master branch this is harder to undo.
 If you would have squashed all the commits into one you could have just reverted this commit but as we indicated you should not rebase commits after they are pushed.
-Fortunately [reverting a merge made some time ago](http://git-scm.com/blog/2010/03/02/undoing-merges.html) can be done with git.
+Fortunately [reverting a merge made some time ago](https://git-scm.com/blog/2010/03/02/undoing-merges.html) can be done with git.
 This however, requires having specific merge commits for the commits your want to revert.
 If you revert a merge and you change your mind, revert the revert instead of merging again since git will not allow you to merge the code again otherwise.
 
@@ -215,18 +219,16 @@ With git you can also rebase your feature branch commits to order them after the
 This prevents creating a merge commit when merging master into your feature branch and creates a nice linear history.
 However, just like with squashing you should never rebase commits you have pushed to a remote server.
 This makes it impossible to rebase work in progress that you already shared with your team which is something we recommend.
-When using rebase to keep your feature branch updated you [need to resolve similar conflicts again and again](http://blogs.atlassian.com/2013/10/git-team-workflows-merge-or-rebase/).
-You can reuse recorded resolutions (rerere) sometimes, but with without rebasing you only have to solve the conflicts one time and you’re set.
+When using rebase to keep your feature branch updated you [need to resolve similar conflicts again and again](https://blogs.atlassian.com/2013/10/git-team-workflows-merge-or-rebase/).
+You can reuse recorded resolutions (rerere) sometimes, but without rebasing you only have to solve the conflicts one time and you’re set.
 There has to be a better way to avoid many merge commits.
 
 The way to prevent creating many merge commits is to not frequently merge master into the feature branch.
-We'll discuss the three reasons to merge in master: leveraging code, solving merge conflicts and long running branches.
+We'll discuss the three reasons to merge in master: leveraging code, merge conflicts, and long running branches.
 If you need to leverage some code that was introduced in master after you created the feature branch you can sometimes solve this by just cherry-picking a commit.
 If your feature branch has a merge conflict, creating a merge commit is a normal way of solving this.
-You should aim to prevent merge conflicts where they are likely to occur.
-One example is the CHANGELOG file where each significant change in the codebase is documented under a version header.
-Instead of everyone adding their change at the bottom of the list for the current version it is better to randomly insert it in the current list for that version.
-This it is likely that multiple feature branches that add to the CHANGELOG can be merged before a conflict occurs.
+You can prevent some merge conflicts by using [gitattributes](http://git-scm.com/docs/gitattributes) for files that can be in a random order.
+For example in GitLab our changelog file is specified in .gitattributes as `CHANGELOG.md merge=union` so that there are fewer merge conflicts in it.
 The last reason for creating merge commits is having long lived branches that you want to keep up to date with the latest state of the project.
 Martin Fowler, in [his article about feature branches](http://martinfowler.com/bliki/FeatureBranch.html) talks about this Continuous Integration (CI).
 At GitLab we are guilty of confusing CI with branch testing. Quoting Martin Fowler: "I've heard people say they are doing CI because they are running builds, perhaps using a CI server, on every branch with every commit.
@@ -244,13 +246,12 @@ Developing software happen in small messy steps and it is OK to have your histor
 You can use tools to view the network graphs of commits and understand the messy history that created your code.
 If you rebase code the history is incorrect, and there is no way for tools to remedy this because they can't deal with changing commit identifiers.
 
-## Voting on merge requests
+## Award emojis on issues and merge requests
 
-![Voting slider in GitLab](voting_slider.png)
+![Emoji bar in GitLab](award_emoji.png)
 
-It is common to voice approval or disapproval by using +1 or -1 emoticons.
-In GitLab the +1 and -1 are aggregated and shown at the top of the merge request.
-As a rule of thumb anything that doesn't have two times more +1's than -1's is suspect and should not be merged yet.
+It is common to voice approval or disapproval by using +1 or -1. In GitLab you
+can use emojis to give a virtual high five on issues and merge requests.
 
 ## Pushing and removing branches
 
@@ -307,7 +308,7 @@ When initiating a feature branch, always start with an up to date master to bran
 If you know beforehand that your work absolutely depends on another branch you can also branch from there.
 If you need to merge in another branch after starting explain the reason in the merge commit.
 If you have not pushed your commits to a shared location yet you can also rebase on master or another feature branch.
-Do not merge in upstream if your code will work and merge cleanly without doing so, Linus even says that [you should never merge in upstream at random points, only at major releases](http://lwn.net/Articles/328438/).
+Do not merge in upstream if your code will work and merge cleanly without doing so, Linus even says that [you should never merge in upstream at random points, only at major releases](https://lwn.net/Articles/328438/).
 Merging only when needed prevents creating merge commits in your feature branch that later end up littering the master history.
 
 ### References

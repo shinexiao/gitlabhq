@@ -1,11 +1,13 @@
 class Oauth::AuthorizationsController < Doorkeeper::AuthorizationsController
-  before_filter :authenticate_resource_owner!
-  layout "profile"
+  before_action :authenticate_resource_owner!
+
+  layout 'profile'
 
   def new
     if pre_auth.authorizable?
       if skip_authorization? || matching_token?
         auth = authorization.authorize
+        session.delete(:user_return_to)
         redirect_to auth.redirect_uri
       else
         render "doorkeeper/authorizations/new"

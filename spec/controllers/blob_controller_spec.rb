@@ -18,8 +18,10 @@ describe Projects::BlobController do
     render_views
 
     before do
-      get(:show, namespace_id: project.namespace.to_param,
-          project_id: project.to_param, id: id)
+      get(:show,
+          namespace_id: project.namespace.to_param,
+          project_id: project.to_param,
+          id: id)
     end
 
     context "valid branch, valid file" do
@@ -36,14 +38,21 @@ describe Projects::BlobController do
       let(:id) { 'invalid-branch/README.md' }
       it { is_expected.to respond_with(:not_found) }
     end
+
+    context "binary file" do
+      let(:id) { 'binary-encoding/encoding/binary-1.bin' }
+      it { is_expected.to respond_with(:success) }
+    end
   end
 
   describe 'GET show with tree path' do
     render_views
 
     before do
-      get(:show, namespace_id: project.namespace.to_param,
-          project_id: project.to_param, id: id)
+      get(:show,
+          namespace_id: project.namespace.to_param,
+          project_id: project.to_param,
+          id: id)
       controller.instance_variable_set(:@blob, nil)
     end
 

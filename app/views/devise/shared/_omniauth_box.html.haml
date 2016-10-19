@@ -1,10 +1,9 @@
-%p
-  %span.light
-    Sign in with &nbsp;
-  - providers = additional_providers
-  - providers.each do |provider|
+%div.omniauth-container
+  %p
     %span.light
-      - if default_providers.include?(provider)
-        = link_to oauth_image_tag(provider), omniauth_authorize_path(resource_name, provider), class: 'oauth-image-link'
-      - else
-        = link_to provider.to_s.titleize, omniauth_authorize_path(resource_name, provider), class: "btn"
+      Sign in with &nbsp;
+    - providers = enabled_button_based_providers
+    - providers.each do |provider|
+      %span.light
+        - has_icon = provider_has_icon?(provider)
+        = link_to provider_image_tag(provider), omniauth_authorize_path(:user, provider), method: :post, class: (has_icon ? 'oauth-image-link' : 'btn'), "data-no-turbolink" => "true"

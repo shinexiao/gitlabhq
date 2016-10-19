@@ -1,17 +1,13 @@
-.panel.panel-default
+.panel.panel-default.prepend-top-default
   .panel-heading
-    %strong= @group.name
-    group settings:
+    Group settings
   .panel-body
     = form_for @group, html: { multipart: true, class: "form-horizontal" }, authenticity_token: true do |f|
-      - if @group.errors.any?
-        .alert.alert-danger
-          %span= @group.errors.full_messages.first
+      = form_errors(@group)
       = render 'shared/group_form', f: f
 
       .form-group
-        .col-sm-2
-        .col-sm-10
+        .col-sm-offset-2.col-sm-10
           = image_tag group_icon(@group), alt: '', class: 'avatar group-avatar s160'
           %p.light
             - if @group.avatar?
@@ -22,6 +18,24 @@
           - if @group.avatar?
             %hr
             = link_to 'Remove avatar', group_avatar_path(@group.to_param), data: { confirm: "Group avatar will be removed. Are you sure?"}, method: :delete, class: "btn btn-remove btn-sm remove-avatar"
+
+      = render 'shared/visibility_level', f: f, visibility_level: @group.visibility_level, can_change_visibility_level: can_change_group_visibility_level?(@group), form_model: @group
+
+      .form-group
+        .col-sm-offset-2.col-sm-10
+          = render 'shared/allow_request_access', form: f
+
+      = render 'group_lfs_settings', f: f
+
+      .form-group
+        %hr
+        = f.label :share_with_group_lock, class: 'control-label' do
+          Share with group lock
+        .col-sm-10
+          .checkbox
+            = f.check_box :share_with_group_lock
+            %span.descr Prevent sharing a project with another group within this group
+
 
       .form-actions
         = f.submit 'Save group', class: "btn btn-save"
@@ -34,4 +48,5 @@
       %br
       %strong Removed group can not be restored!
 
-    = link_to 'Remove Group', @group, data: {confirm: 'Removed group can not be restored! Are you sure?'}, method: :delete, class: "btn btn-remove"
+    .form-actions
+      = link_to 'Remove Group', @group, data: {confirm: 'Removed group can not be restored! Are you sure?'}, method: :delete, class: "btn btn-remove"

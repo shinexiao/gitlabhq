@@ -3,17 +3,26 @@ require "base64"
 class Projects::CommitsController < Projects::ApplicationController
   include ExtractsPath
 
-  before_filter :require_non_empty_project
-  before_filter :assign_ref_vars
-  before_filter :authorize_download_code!
+  before_action :require_non_empty_project
+  before_action :assign_ref_vars
+  before_action :authorize_download_code!
 
   def show
-    @repo = @project.repository
-    @limit, @offset = (params[:limit] || 40), (params[:offset] || 0)
+    @limit, @offset = (params[:limit] || 40).to_i, (params[:offset] || 0).to_i
+    search = params[:search]
 
-    @commits = @repo.commits(@ref, @path, @limit, @offset)
-    @note_counts = Note.where(commit_id: @commits.map(&:id)).
+    @commits =
+      if search.present?
+        @repository.find_commits_by_message(search, @ref, @path, @limit, @offset).compact
+      else
+        @repository.commits(@ref, path: @path, limit: @limit, offset: @offset)
+      end
+
+    @note_counts = project.notes.where(commit_id: @commits.map(&:id)).
       group(:commit_id).count
+
+    @merge_request = @project.merge_requests.opened.
+      find_by(source_project: @project, source_branch: @ref, target_branch: @repository.root_ref)
 
     respond_to do |format|
       format.html

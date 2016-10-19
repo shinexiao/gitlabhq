@@ -1,16 +1,13 @@
 class Groups::GroupMembersController < Groups::ApplicationController
-  skip_before_filter :authenticate_user!, only: [:index]
-  before_filter :group
+  include MembershipActions
 
   # Authorize
-  before_filter :authorize_read_group!
-  before_filter :authorize_admin_group!, except: [:index, :leave]
-
-  layout :determine_layout
+  before_action :authorize_admin_group_member!, except: [:index, :leave, :request_access]
 
   def index
     @project = @group.projects.find(params[:project_id]) if params[:project_id]
     @members = @group.group_members
+    @members = @members.non_invite unless can?(current_user, :admin_group, @group)
 
     if params[:search].present?
       users = @group.users.search(params[:search]).to_a
@@ -18,52 +15,59 @@ class Groups::GroupMembersController < Groups::ApplicationController
     end
 
     @members = @members.order('access_level DESC').page(params[:page]).per(50)
-    @group_member = GroupMember.new
+    @requesters = AccessRequestsFinder.new(@group).execute(current_user)
+
+    @group_member = @group.group_members.new
   end
 
   def create
-    @group.add_users(params[:user_ids].split(','), params[:access_level])
+    @group.add_users(
+      params[:user_ids].split(','),
+      params[:access_level],
+      current_user: current_user,
+      expires_at: params[:expires_at]
+    )
 
     redirect_to group_group_members_path(@group), notice: 'Users were successfully added.'
   end
 
   def update
-    @member = @group.group_members.find(params[:id])
-    @member.update_attributes(member_params)
+    @group_member = @group.group_members.find(params[:id])
+
+    return render_403 unless can?(current_user, :update_group_member, @group_member)
+
+    @group_member.update_attributes(member_params)
   end
 
   def destroy
-    @group_member = @group.group_members.find(params[:id])
+    Members::DestroyService.new(@group, current_user, id: params[:id]).execute(:all)
 
-    if can?(current_user, :destroy_group_member, @group_member)  # May fail if last owner.
-      @group_member.destroy
-      respond_to do |format|
-        format.html { redirect_to group_group_members_path(@group), notice: 'User was  successfully removed from group.' }
-        format.js { render nothing: true }
-      end
-    else
-      return render_403
+    respond_to do |format|
+      format.html { redirect_to group_group_members_path(@group), notice: 'User was successfully removed from group.' }
+      format.js { head :ok }
     end
   end
 
-  def leave
-    @group_member = @group.group_members.where(user_id: current_user.id).first
-    
-    if can?(current_user, :destroy_group_member, @group_member)
-      @group_member.destroy
-      redirect_to(dashboard_groups_path, info: "You left #{group.name} group.")
+  def resend_invite
+    redirect_path = group_group_members_path(@group)
+
+    @group_member = @group.group_members.find(params[:id])
+
+    if @group_member.invite?
+      @group_member.resend_invite
+
+      redirect_to redirect_path, notice: 'The invitation was successfully resent.'
     else
-      return render_403
+      redirect_to redirect_path, alert: 'The invitation has already been accepted.'
     end
   end
 
   protected
 
-  def group
-    @group ||= Group.find_by(path: params[:group_id])
+  def member_params
+    params.require(:group_member).permit(:access_level, :user_id, :expires_at)
   end
 
-  def member_params
-    params.require(:group_member).permit(:access_level, :user_id)
-  end
+  # MembershipActions concern
+  alias_method :membershipable, :group
 end

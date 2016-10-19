@@ -1,6 +1,9 @@
 Gitlab::Seeder.quiet do
+  # Limit the number of merge requests per project to avoid long seeds
+  MAX_NUM_MERGE_REQUESTS = 10
+
   Project.all.reject(&:empty_repo?).each do |project|
-    branches = project.repository.branch_names
+    branches = project.repository.branch_names.sample(MAX_NUM_MERGE_REQUESTS * 2)
 
     branches.each do |branch_name|
       break if branches.size < 2
@@ -10,8 +13,8 @@ Gitlab::Seeder.quiet do
       params = {
         source_branch: source_branch,
         target_branch: target_branch,
-        title: Faker::Lorem.sentence(6),
-        description: Faker::Lorem.sentences(3).join(" "),
+        title: FFaker::Lorem.sentence(6),
+        description: FFaker::Lorem.sentences(3).join(" "),
         milestone: project.milestones.sample,
         assignee: project.team.users.sample
       }

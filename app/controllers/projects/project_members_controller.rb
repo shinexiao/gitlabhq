@@ -1,76 +1,98 @@
 class Projects::ProjectMembersController < Projects::ApplicationController
-  # Authorize
-  before_filter :authorize_admin_project!, except: :leave
+  include MembershipActions
 
-  layout "project_settings"
+  # Authorize
+  before_action :authorize_admin_project_member!, except: [:index, :leave, :request_access]
 
   def index
+    @group_links = @project.project_group_links
+
     @project_members = @project.project_members
+    @project_members = @project_members.non_invite unless can?(current_user, :admin_project, @project)
 
     if params[:search].present?
       users = @project.users.search(params[:search]).to_a
       @project_members = @project_members.where(user_id: users)
+
+      @group_links = @project.project_group_links.where(group_id: @project.invited_groups.search(params[:search]).select(:id))
     end
 
-    @project_members = @project_members.order('access_level DESC')
+    @project_members = @project_members.order(access_level: :desc).page(params[:page])
 
-    @group = @project.group
-    if @group
-      @group_members = @group.group_members
+    @requesters = AccessRequestsFinder.new(@project).execute(current_user)
 
-      if params[:search].present?
-        users = @group.users.search(params[:search]).to_a
-        @group_members = @group_members.where(user_id: users)
-      end
-      
-      @group_members = @group_members.order('access_level DESC').limit(20)
-    end
-
-    @project_member = @project.project_members.new
-  end
-
-  def new
     @project_member = @project.project_members.new
   end
 
   def create
-    users = User.where(id: params[:user_ids].split(','))
-    @project.team << [users, params[:access_level]]
+    @project.team.add_users(
+      params[:user_ids].split(','),
+      params[:access_level],
+      expires_at: params[:expires_at],
+      current_user: current_user
+    )
+
+    if params[:group_ids].present?
+      group_ids = params[:group_ids].split(',')
+      groups = Group.where(id: group_ids)
+
+      groups.each do |group|
+        next unless can?(current_user, :read_group, group)
+
+        project.project_group_links.create(
+          group: group,
+          group_access: params[:access_level],
+          expires_at: params[:expires_at]
+        )
+      end
+    end
 
     redirect_to namespace_project_project_members_path(@project.namespace, @project)
   end
 
   def update
-    @project_member = @project.project_members.find_by(user_id: member)
+    @project_member = @project.project_members.find(params[:id])
+
+    return render_403 unless can?(current_user, :update_project_member, @project_member)
+
     @project_member.update_attributes(member_params)
   end
 
   def destroy
-    @project_member = @project.project_members.find_by(user_id: member)
-    @project_member.destroy
+    Members::DestroyService.new(@project, current_user, params).
+      execute(:all)
 
     respond_to do |format|
       format.html do
-        redirect_to namespace_project_project_members_path(@project.namespace,
-                                                      @project)
+        redirect_to namespace_project_project_members_path(@project.namespace, @project)
       end
-      format.js { render nothing: true }
+      format.js { head :ok }
     end
   end
 
-  def leave
-    @project.project_members.find_by(user_id: current_user).destroy
+  def resend_invite
+    redirect_path = namespace_project_project_members_path(@project.namespace, @project)
 
-    respond_to do |format|
-      format.html { redirect_to :back }
-      format.js { render nothing: true }
+    @project_member = @project.project_members.find(params[:id])
+
+    if @project_member.invite?
+      @project_member.resend_invite
+
+      redirect_to redirect_path, notice: 'The invitation was successfully resent.'
+    else
+      redirect_to redirect_path, alert: 'The invitation has already been accepted.'
     end
   end
 
   def apply_import
-    giver = Project.find(params[:source_project_id])
-    status = @project.team.import(giver)
-    notice = status ? "Successfully imported" : "Import failed"
+    source_project = Project.find(params[:source_project_id])
+
+    if can?(current_user, :read_project_member, source_project)
+      status = @project.team.import(source_project, current_user)
+      notice = status ? "Successfully imported" : "Import failed"
+    else
+      return render_404
+    end
 
     redirect_to(namespace_project_project_members_path(project.namespace, project),
                 notice: notice)
@@ -78,11 +100,10 @@ class Projects::ProjectMembersController < Projects::ApplicationController
 
   protected
 
-  def member
-    @member ||= User.find_by(username: params[:id])
+  def member_params
+    params.require(:project_member).permit(:user_id, :access_level, :expires_at)
   end
 
-  def member_params
-    params.require(:project_member).permit(:user_id, :access_level)
-  end
+  # MembershipActions concern
+  alias_method :membershipable, :project
 end

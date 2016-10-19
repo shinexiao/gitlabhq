@@ -1,17 +1,13 @@
-%h3.page-title
-  Public snippets
+- page_title "By #{@user.name}", "Snippets"
 
-  .pull-right
+%ol.breadcrumb
+  %li
+    = link_to snippets_path do
+      Snippets
+  %li
+    = @user.name
+  .pull-right.hidden-xs
+    = link_to user_path(@user) do
+      #{@user.name} profile page
 
-    - if current_user
-      = link_to new_snippet_path, class: "btn btn-new btn-grouped", title: "New Snippet" do
-        Add new snippet
-      = link_to user_snippets_path(current_user), class: "btn btn-grouped"  do
-        Your snippets
-
-%p.light
-  Public snippets created by you and other users are listed here
-
-%hr
 = render 'snippets'
-

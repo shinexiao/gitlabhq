@@ -1,3 +1,4 @@
+@project_commits
 Feature: Project Commits Diff Comments
   Background:
     Given I sign in as a user
@@ -5,13 +6,15 @@ Feature: Project Commits Diff Comments
     And I visit project commit page
 
   @javascript
-  Scenario: I can access add diff comment buttons
-    Then I should see add a diff comment button
-
-  @javascript
   Scenario: I can comment on a commit diff
     Given I leave a diff comment like "Typo, please fix"
     Then I should see a diff comment saying "Typo, please fix"
+
+  @javascript
+  Scenario: I can add a diff comment with a single emoji
+    Given I open a diff comment form
+    And I write a diff comment like ":smile:"
+    Then I should see a diff comment with an emoji image
 
   @javascript
   Scenario: I get a temporary form for the first comment on a diff line
@@ -77,3 +80,17 @@ Feature: Project Commits Diff Comments
     And I submit the diff comment
     Then I should not see the diff comment form
     And I should see a discussion reply button
+
+  @javascript
+  Scenario: I can add a comment on a side-by-side commit diff (left side)
+    Given I open a diff comment form
+    And I click side-by-side diff button
+    When I leave a diff comment in a parallel view on the left side like "Old comment"
+    Then I should see a diff comment on the left side saying "Old comment"
+
+  @javascript
+  Scenario: I can add a comment on a side-by-side commit diff (right side)
+    Given I open a diff comment form
+    And I click side-by-side diff button
+    When I leave a diff comment in a parallel view on the right side like "New comment"
+    Then I should see a diff comment on the right side saying "New comment"

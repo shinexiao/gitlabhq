@@ -19,7 +19,7 @@ class Spinach::Features::ExploreGroups < Spinach::FeatureSteps
   step '"John Doe" is owner of group "TestGroup"' do
     group = Group.find_by(name: "TestGroup") || create(:group, name: "TestGroup")
     user = create(:user, name: "John Doe")
-    group.add_user(user, Gitlab::Access::OWNER)
+    group.add_owner(user)
   end
 
   step 'I visit group "TestGroup" page' do
@@ -39,19 +39,19 @@ class Spinach::Features::ExploreGroups < Spinach::FeatureSteps
   end
 
   step 'I should not see project "Enterprise" items' do
-    page.should_not have_content "Enterprise"
+    expect(page).not_to have_content "Enterprise"
   end
 
   step 'I should see project "Internal" items' do
-    page.should have_content "Internal"
+    expect(page).to have_content "Internal"
   end
 
   step 'I should not see project "Internal" items' do
-    page.should_not have_content "Internal"
+    expect(page).not_to have_content "Internal"
   end
 
   step 'I should see project "Community" items' do
-    page.should have_content "Community"
+    expect(page).to have_content "Community"
   end
 
   step 'I change filter to Everyone\'s' do
@@ -59,11 +59,7 @@ class Spinach::Features::ExploreGroups < Spinach::FeatureSteps
   end
 
   step 'I should see group member "John Doe"' do
-    page.should have_content "John Doe"
-  end
-
-  step 'I should not see member roles' do
-    body.should_not match(%r{owner|developer|reporter|guest}i)
+    expect(page).to have_content "John Doe"
   end
 
   protected
@@ -75,18 +71,18 @@ class Spinach::Features::ExploreGroups < Spinach::FeatureSteps
       name: projectname,
       path: "#{groupname}-#{projectname}",
       visibility_level: visibility_level
-    )
+                    )
     create(:issue,
       title: "#{projectname} feature",
       project: project
-    )
+          )
     create(:merge_request,
       title: "#{projectname} feature implemented",
       source_project: project,
       target_project: project
-    )
+          )
     create(:closed_issue_event,
       project: project
-    )
+          )
   end
 end

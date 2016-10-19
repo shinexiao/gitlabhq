@@ -6,12 +6,12 @@ module Gitlab
       def initialize(project)
         @project = project
         @current_user = project.creator
-        @client = Client.new(current_user.bitbucket_access_token, current_user.bitbucket_access_token_secret)
+        @client = Client.from_project(@project)
       end
 
       def execute
         return false unless BitbucketImport.public_key.present?
-        
+
         client.delete_deploy_key(project.import_source, BitbucketImport.public_key)
 
         true

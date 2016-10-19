@@ -1,37 +1,30 @@
+// Common
 .diff-file {
   border: 1px solid $border-color;
-  margin-bottom: 1em;
+  margin-bottom: $gl-padding;
+  border-radius: 3px;
+
+  .commit-short-id {
+    font-family: $regular_font;
+    font-weight: 400;
+  }
 
   .diff-header {
     position: relative;
     background: $background-color;
     border-bottom: 1px solid $border-color;
-    padding: 10px 15px;
+    padding: 10px 16px;
     color: #555;
     z-index: 10;
+    border-radius: 3px 3px 0 0;
 
-    > span {
+    .diff-title {
       font-family: $monospace_font;
       word-break: break-all;
-      margin-right: 200px;
       display: block;
 
       .file-mode {
-        margin-left: 10px;
         color: #777;
-      }
-    }
-
-    .diff-btn-group {
-      float: right;
-      position: absolute;
-      top: 5px;
-      right: 15px;
-
-      .btn {
-        padding: 0px 10px;
-        font-size: 13px;
-        line-height: 28px;
       }
     }
 
@@ -40,22 +33,27 @@
       font-size: smaller;
     }
   }
+
+  .file-title {
+    cursor: pointer;
+
+    &:hover {
+      background-color: $dark-background-color;
+    }
+
+    .diff-toggle-caret {
+      padding-right: 6px;
+    }
+  }
+
   .diff-content {
     overflow: auto;
     overflow-y: hidden;
-    background: #FFF;
+    background: #fff;
     color: #333;
-    font-size: $code_font_size;
-    .old {
-      span.idiff {
-        background-color: #f8cbcb;
-      }
-    }
-    .new {
-      span.idiff {
-        background-color: #a6f3a6;
-      }
-    }
+    border-radius: 0 0 3px 3px;
+    -webkit-overflow-scrolling: auto;
+
     .unfold {
       cursor: pointer;
     }
@@ -65,97 +63,117 @@
       color: #777;
     }
 
+    .suppressed-container {
+      padding: ($padding-base-vertical + 5px) $padding-base-horizontal;
+      text-align: center;
+
+      // "Changes suppressed. Click to show." link
+      .show-suppressed-diff {
+        font-size: 110%;
+        font-weight: bold;
+      }
+    }
+
     table {
       width: 100%;
       font-family: $monospace_font;
       border: none;
-      margin: 0px;
-      padding: 0px;
-      td {
+      border-collapse: separate;
+      margin: 0;
+      padding: 0;
+      table-layout: fixed;
+
+      .diff-line-num {
+        width: 50px;
+      }
+
+      .line_holder td {
         line-height: $code_line_height;
         font-size: $code_font_size;
+
+        &.noteable_line {
+          position: relative;
+
+          &.old {
+            &:before {
+              content: '-';
+              position: absolute;
+            }
+          }
+
+          &.new {
+            &:before {
+              content: '+';
+              position: absolute;
+            }
+          }
+        }
+
+        span {
+          white-space: pre-wrap;
+        }
       }
     }
 
-    tr.line_holder.parallel{
-      .old_line, .new_line, .diff_line {
-        min-width: 50px;
+    tr.line_holder.parallel {
+      td.line_content.parallel {
+        width: 46%;
       }
 
-      td.line_content.parallel{
-        width: 50%;
+      .add-diff-note {
+        margin-left: -65px;
       }
     }
 
-    .old_line, .new_line, .diff_line {
-      margin: 0px;
-      padding: 0px;
+    .old_line, .new_line {
+      margin: 0;
+      padding: 0;
       border: none;
-      background: $background-color;
-      color: rgba(0,0,0,0.3);
-      padding: 0px 5px;
-      border-right: 1px solid $border-color;
+      padding: 0 5px;
+      border-right: 1px solid;
       text-align: right;
       min-width: 35px;
       max-width: 50px;
       width: 35px;
       @include user-select(none);
+
       a {
         float: left;
         width: 35px;
         font-weight: normal;
-        color: rgba(0,0,0,0.3);
+
         &:hover {
           text-decoration: underline;
         }
       }
-      &.new {
-        background: #CFD;
-      }
-      &.old {
-        background: #FDD;
-      }
     }
-    .diff_line {
-      padding: 0;
-    }
-    .line_holder {
-      &.old .old_line,
-      &.old .new_line {
-        background: #ffdddd;
-        border-color: #f1c0c0;
-      }
-      &.new .old_line,
-      &.new .new_line {
-        background: #dbffdb;
-        border-color: #c1e9c1;
-      }
-    }
+
     .line_content {
       display: block;
-      margin: 0px;
-      padding: 0px 0.5em;
+      margin: 0;
+      padding: 0 0.5em;
       border: none;
-      &.new {
-        background: #eaffea;
-      }
-      &.old {
-        background: #ffecec;
-      }
-      &.matched {
-        color: $border-color;
-        background: #fafafa;
-      }
+
       &.parallel {
         display: table-cell;
+
+        span {
+          word-break: break-all;
+        }
       }
     }
+
+    .text-file.diff-wrap-lines table .line_holder td span {
+      white-space: pre-wrap;
+    }
   }
+
   .image {
     background: #ddd;
     text-align: center;
     padding: 30px;
-    .wrap{
+
+    .wrap {
       display: inline-block;
     }
 
@@ -163,11 +181,16 @@
       display: inline-block;
       background-color: #fff;
       line-height: 0;
-      img{
-        border: 1px solid #FFF;
-        background: image-url('trans_bg.gif');
+
+      img {
+        border: 1px solid #fff;
+        background-image: linear-gradient(45deg, #e5e5e5 25%, transparent 25%, transparent 75%, #e5e5e5 75%, #e5e5e5 100%),
+        linear-gradient(45deg, #e5e5e5 25%, transparent 25%, transparent 75%, #e5e5e5 75%, #e5e5e5 100%);
+        background-size: 10px 10px;
+        background-position: 0 0, 5px 5px;
         max-width: 100%;
       }
+
       &.deleted {
         border: 1px solid $deleted;
       }
@@ -176,21 +199,23 @@
         border: 1px solid $added;
       }
     }
-    .image-info{
+
+    .image-info {
       font-size: 12px;
-      margin: 5px 0 0 0;
+      margin: 5px 0 0;
       color: grey;
     }
 
-    .view.swipe{
+    .view.swipe {
       position: relative;
 
-      .swipe-frame{
+      .swipe-frame {
         display: block;
         margin: auto;
         position: relative;
       }
-      .swipe-wrap{
+
+      .swipe-wrap {
         overflow: hidden;
         border-left: 1px solid #999;
         position: absolute;
@@ -198,73 +223,83 @@
         top: 13px;
         right: 7px;
       }
-      .frame{
+ 
+      .frame {
         top: 0;
         right: 0;
         position: absolute;
-        &.deleted{
+ 
+        &.deleted {
           margin: 0;
           display: block;
           top: 13px;
           right: 7px;
         }
       }
-      .swipe-bar{
+
+      .swipe-bar {
         display: block;
         height: 100%;
         width: 15px;
         z-index: 100;
         position: absolute;
         cursor: pointer;
-        &:hover{
-          .top-handle{
+
+        &:hover {
+          .top-handle {
             background-position: -15px 3px;
           }
-          .bottom-handle{
+
+          .bottom-handle {
             background-position: -15px -11px;
           }
-        };
-        .top-handle{
+        }
+
+        .top-handle {
           display: block;
           height: 14px;
           width: 15px;
           position: absolute;
-          top: 0px;
+          top: 0;
           background: image-url('swipemode_sprites.gif') 0 3px no-repeat;
         }
-        .bottom-handle{
+
+        .bottom-handle {
           display: block;
           height: 14px;
           width: 15px;
           position: absolute;
-          bottom: 0px;
+          bottom: 0;
           background: image-url('swipemode_sprites.gif') 0 -11px no-repeat;
         }
       }
-    } //.view.swipe
-    .view.onion-skin{
-      .onion-skin-frame{
+    }
+    //.view.swipe
+    .view.onion-skin {
+      .onion-skin-frame {
         display: block;
         margin: auto;
         position: relative;
       }
+
       .frame.added, .frame.deleted {
         position: absolute;
         display: block;
-        top: 0px;
-        left: 0px;
+        top: 0;
+        left: 0;
       }
-      .controls{
+
+      .controls {
         display: block;
         height: 14px;
         width: 300px;
         z-index: 100;
         position: absolute;
-        bottom: 0px;
+        bottom: 0;
         left: 50%;
         margin-left: -150px;
 
-        .drag-track{
+        .drag-track {
           display: block;
           position: absolute;
           left: 12px;
@@ -276,11 +311,11 @@
         .dragger {
           display: block;
           position: absolute;
-          left: 0px;
-          top: 0px;
+          left: 0;
+          top: 0;
           height: 14px;
           width: 14px;
-          background: image-url('onion_skin_sprites.gif') 0px -34px repeat-x;
+          background: image-url('onion_skin_sprites.gif') 0 -34px repeat-x;
           cursor: pointer;
         }
 
@@ -288,55 +323,62 @@
           display: block;
           position: absolute;
           top: 2px;
-          right: 0px;
+          right: 0;
           height: 10px;
           width: 10px;
-          background: image-url('onion_skin_sprites.gif') -2px 0px no-repeat;
+          background: image-url('onion_skin_sprites.gif') -2px 0 no-repeat;
         }
 
         .opaque {
           display: block;
           position: absolute;
           top: 2px;
-          left: 0px;
+          left: 0;
           height: 10px;
           width: 10px;
           background: image-url('onion_skin_sprites.gif') -2px -10px no-repeat;
         }
       }
-    } //.view.onion-skin
+    }
+    //.view.onion-skin
   }
-  .view-modes{
+
+  .view-modes {
     padding: 10px;
     text-align: center;
-    background: #EEE;
+    background: #eee;
 
-    ul, li{
+    ul, li {
       list-style: none;
       margin: 0;
       padding: 0;
       display: inline-block;
     }
 
-    li{
+    li {
       color: grey;
       border-left: 1px solid #c1c1c1;
       padding: 0 12px 0 16px;
       cursor: pointer;
-      &:first-child{
+
+      &:first-child {
         border-left: none;
       }
-      &:hover{
+
+      &:hover {
         text-decoration: underline;
       }
-      &.active{
-        &:hover{
+
+      &.active {
+        &:hover {
           text-decoration: none;
         }
+
         cursor: default;
         color: #333;
       }
-      &.disabled{
+
+      &.disabled {
         display: none;
       }
     }
@@ -349,10 +391,87 @@
 }
 
 .diff-file .line_content {
-  white-space: pre;
+  white-space: pre-wrap;
 }
 
 .diff-wrap-lines .line_content {
   white-space: pre-wrap;
 }
 
+.inline-parallel-buttons {
+  float: right;
+}
+
+.diffs {
+  .content-block {
+    border-bottom: none;
+  }
+}
+
+.files-changed {
+  border-bottom: none;
+}
+
+// Mobile
+@media (max-width: 480px) {
+  .diff-title {
+    margin: 0;
+
+    .file-mode {
+      display: none;
+    }
+  }
+
+  .diff-controls {
+    position: static;
+    text-align: center;
+  }
+}
+
+// Bigger screens
+@media (min-width: 481px) {
+  .diff-title {
+    margin-right: 200px;
+
+    .file-mode {
+      margin-left: 10px;
+    }
+  }
+
+  .diff-controls {
+    float: right;
+    position: absolute;
+    top: 5px;
+    right: 15px;
+  }
+}
+
+@mixin diff_background($background, $idiff, $border) {
+  background: $background;
+
+  &.line_content span.idiff {
+    background: $idiff;
+  }
+
+  &.diff-line-num {
+    border-color: $border;
+  }
+}
+
+.files {
+  margin-top: -1px;
+
+  .diff-file:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.file-holder {
+  .diff-line-num:not(.js-unfold-bottom) {
+    a {
+      &:before {
+        content: attr(data-linenumber);
+      }
+    }
+  }
+}

@@ -2,8 +2,82 @@
   max-width: 90%;
 }
 
-li.milestone {
-  h4 {
-    font-weight: bold;
+.milestones {
+  .milestone {
+    padding: 10px 16px;
+
+    h4 {
+      font-weight: bold;
+    }
+
+    .progress {
+      height: 6px;
+    }
+  }
+}
+
+.milestone-content {
+  .issues-count {
+    margin-right: 17px;
+    float: right;
+    width: 105px;
+  }
+
+  .issuable-row {
+    .color-label {
+      border-radius: 2px;
+      padding: 3px !important;
+      margin-right: 7px;
+    }
+
+    // Issue title
+    span a {
+      color: $gl-text-color;
+      word-wrap: break-word;
+    }
+  }
+}
+
+.milestone-summary {
+  margin-bottom: 25px;
+
+  .milestone-stat {
+    margin-right: 10px;
+  }
+
+  .remaining-days {
+    color: $orange-light;
+  }
+}
+
+.issues-sortable-list, .merge_requests-sortable-list {
+  .issuable-detail {
+    display: block;
+    margin-top: 7px;
+
+    .issuable-number {
+      color: $gl-placeholder-color;
+      margin-right: 5px;
+    }
+
+    .avatar {
+      float: none;
+    }
+  }
+}
+
+.milestone-detail {
+  border-bottom: 1px solid $border-color;
+  padding: 20px 0;
+}
+
+@media (max-width: $screen-sm-min) {
+  .milestone-actions {
+    @include clearfix();
+    padding-top: $gl-vert-padding;
+
+    .btn:first-child {
+      margin-left: 0;
+    }
   }
 }

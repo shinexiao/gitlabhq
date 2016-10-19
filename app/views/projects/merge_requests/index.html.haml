@@ -1,11 +1,22 @@
-.append-bottom-10
-  .pull-right
-    = render 'shared/issuable_search_form', path: namespace_project_merge_requests_path(@project.namespace, @project)
+- @no_container = true
+- @bulk_edit = can?(current_user, :admin_merge_request, @project)
 
-    - if can? current_user, :write_merge_request, @project
-      = link_to new_namespace_project_merge_request_path(@project.namespace, @project), class: "btn btn-new pull-left", title: "New Merge Request" do
-        %i.fa.fa-plus
-        New Merge Request
-  = render 'shared/issuable_filter'
-.merge-requests-holder
-  = render 'merge_requests'
+- page_title "Merge Requests"
+= render "projects/issues/head"
+= render 'projects/last_push'
+
+%div{ class: container_class }
+  .top-area
+    = render 'shared/issuable/nav', type: :merge_requests
+    .nav-controls
+      = render 'shared/issuable/search_form', path: namespace_project_merge_requests_path(@project.namespace, @project)
+
+      - merge_project = can?(current_user, :create_merge_request, @project) ? @project : (current_user && current_user.fork_of(@project))
+      - if merge_project
+        = link_to new_namespace_project_merge_request_path(merge_project.namespace, merge_project), class: "btn btn-new", title: "New Merge Request" do
+          New Merge Request
+
+  = render 'shared/issuable/filter', type: :merge_requests
+
+  .merge-requests-holder
+    = render 'merge_requests'

@@ -1,7 +1,20 @@
 module Gitlab
   module BitbucketImport
     class Client
+      class Unauthorized < StandardError; end
+
       attr_reader :consumer, :api
+
+      def self.from_project(project)
+        import_data_credentials = project.import_data.credentials if project.import_data
+        if import_data_credentials && import_data_credentials[:bb_session]
+          token = import_data_credentials[:bb_session][:bitbucket_access_token]
+          token_secret = import_data_credentials[:bb_session][:bitbucket_access_token_secret]
+          new(token, token_secret)
+        else
+          raise Projects::ImportService::Error, "Unable to find project import data credentials for project ID: #{project.id}"
+        end
+      end
 
       def initialize(access_token = nil, access_token_secret = nil)
         @consumer = ::OAuth::Consumer.new(
@@ -46,23 +59,38 @@ module Gitlab
       end
 
       def user
-        JSON.parse(api.get("/api/1.0/user").body)
+        JSON.parse(get("/api/1.0/user").body)
       end
 
       def issues(project_identifier)
-        JSON.parse(api.get("/api/1.0/repositories/#{project_identifier}/issues").body)
+        all_issues = []
+        offset = 0
+        per_page = 50 # Maximum number allowed by Bitbucket
+        index = 0
+
+        begin
+          issues = JSON.parse(get(issue_api_endpoint(project_identifier, per_page, offset)).body)
+          # Find out how many total issues are present
+          total = issues["count"] if index == 0
+          all_issues.concat(issues["issues"])
+          offset += issues["issues"].count
+          index += 1
+        end while all_issues.count < total
+
+        all_issues
       end
 
       def issue_comments(project_identifier, issue_id)
-        JSON.parse(api.get("/api/1.0/repositories/#{project_identifier}/issues/#{issue_id}/comments").body)
+        comments = JSON.parse(get("/api/1.0/repositories/#{project_identifier}/issues/#{issue_id}/comments").body)
+        comments.sort_by { |comment| comment["utc_created_on"] }
       end
 
       def project(project_identifier)
-        JSON.parse(api.get("/api/1.0/repositories/#{project_identifier}").body)
+        JSON.parse(get("/api/1.0/repositories/#{project_identifier}").body)
       end
 
       def find_deploy_key(project_identifier, key)
-        JSON.parse(api.get("/api/1.0/repositories/#{project_identifier}/deploy-keys").body).find do |deploy_key|
+        JSON.parse(get("/api/1.0/repositories/#{project_identifier}/deploy-keys").body).find do |deploy_key|
           deploy_key["key"].chomp == key.chomp
         end
       end
@@ -82,13 +110,28 @@ module Gitlab
       end
 
       def projects
-        JSON.parse(api.get("/api/1.0/user/repositories").body).select { |repo| repo["scm"] == "git" }
+        JSON.parse(get("/api/1.0/user/repositories").body).select { |repo| repo["scm"] == "git" }
+      end
+
+      def incompatible_projects
+        JSON.parse(get("/api/1.0/user/repositories").body).reject { |repo| repo["scm"] == "git" }
       end
 
       private
 
+      def get(url)
+        response = api.get(url)
+        raise Unauthorized if (400..499).cover?(response.code.to_i)
+
+        response
+      end
+
+      def issue_api_endpoint(project_identifier, per_page, offset)
+        "/api/1.0/repositories/#{project_identifier}/issues?sort=utc_created_on&limit=#{per_page}&start=#{offset}"
+      end
+
       def config
-        Gitlab.config.omniauth.providers.find { |provider| provider.name == "bitbucket"}
+        Gitlab.config.omniauth.providers.find { |provider| provider.name == "bitbucket" }
       end
 
       def bitbucket_options

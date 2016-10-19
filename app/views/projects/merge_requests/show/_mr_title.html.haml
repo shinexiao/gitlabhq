@@ -1,22 +1,35 @@
-%h4.page-title
-  .issue-box{ class: issue_box_class(@merge_request) }
-    - if @merge_request.merged?
-      Merged
-    - elsif @merge_request.closed?
-      Closed
-    - else
-      Open
-  = "Merge Request ##{@merge_request.iid}"
-  %small.creator
-    &middot;
-    created by #{link_to_member(@project, @merge_request.author)} #{time_ago_with_tooltip(@merge_request.created_at)}
+- if @merge_request.closed_without_fork?
+  .alert.alert-danger
+    %p The source project of this merge request has been removed.
 
-  .issue-btn-group.pull-right
-    - if can?(current_user, :modify_merge_request, @merge_request)
-      - if @merge_request.open?
-        = link_to 'Close', merge_request_path(@merge_request, merge_request: { state_event: :close }), method: :put, class: "btn btn-grouped btn-close", title: "Close merge request"
-        = link_to edit_namespace_project_merge_request_path(@project.namespace, @project, @merge_request), class: "btn btn-grouped issuable-edit", id: "edit_merge_request" do
-          %i.fa.fa-pencil-square-o
+.clearfix.detail-page-header
+  .issuable-header
+    .issuable-status-box.status-box{ class: status_box_class(@merge_request) }
+      = icon(@merge_request.state_icon_name, class: "hidden-sm hidden-md hidden-lg")
+      %span.hidden-xs
+        = @merge_request.state_human_name
+
+    %a.btn.btn-default.pull-right.visible-xs-block.gutter-toggle.issuable-gutter-toggle.js-sidebar-toggle{ href: "#" }
+      = icon('angle-double-left')
+
+    .issuable-meta
+      = issuable_meta(@merge_request, @project, "Merge Request")
+
+  - if can?(current_user, :update_merge_request, @merge_request)
+    .issuable-actions
+      .clearfix.issue-btn-group.dropdown
+        %button.btn.btn-default.pull-left.hidden-md.hidden-lg{ type: "button", data: { toggle: "dropdown" } }
+          Options
+          = icon('caret-down')
+        .dropdown-menu.dropdown-menu-align-right.hidden-lg
+          %ul
+            %li{ class: merge_request_button_visibility(@merge_request, true) }
+              = link_to 'Close', merge_request_path(@merge_request, merge_request: { state_event: :close }), method: :put, title: 'Close merge request'
+            %li{ class: merge_request_button_visibility(@merge_request, false) }
+              = link_to 'Reopen', merge_request_path(@merge_request, merge_request: {state_event: :reopen }), method: :put, class: 'reopen-mr-link', title: 'Reopen merge request'
+            %li
+              = link_to 'Edit', edit_namespace_project_merge_request_path(@project.namespace, @project, @merge_request), class: 'issuable-edit'
+        = link_to 'Close', merge_request_path(@merge_request, merge_request: { state_event: :close }), method: :put, class: "hidden-xs hidden-sm btn btn-grouped btn-close #{merge_request_button_visibility(@merge_request, true)}", title: 'Close merge request'
+        = link_to 'Reopen', merge_request_path(@merge_request, merge_request: {state_event: :reopen }), method: :put, class: "hidden-xs hidden-sm btn btn-grouped btn-reopen reopen-mr-link #{merge_request_button_visibility(@merge_request, false)}", title: 'Reopen merge request'
+        = link_to edit_namespace_project_merge_request_path(@project.namespace, @project, @merge_request), class: "hidden-xs hidden-sm btn btn-grouped issuable-edit" do
           Edit
-      - if @merge_request.closed?
-        = link_to 'Reopen', merge_request_path(@merge_request, merge_request: {state_event: :reopen }), method: :put, class: "btn btn-grouped btn-reopen reopen-mr-link", title: "Close merge request"

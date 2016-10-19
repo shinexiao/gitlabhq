@@ -5,7 +5,7 @@ class Spinach::Features::Project < Spinach::FeatureSteps
 
   step 'change project settings' do
     fill_in 'project_name_edit', with: 'NewName'
-    uncheck 'project_issues_enabled'
+    select 'Disabled', from: 'project_project_feature_attributes_issues_access_level'
   end
 
   step 'I save project' do
@@ -13,7 +13,7 @@ class Spinach::Features::Project < Spinach::FeatureSteps
   end
 
   step 'I should see project with new settings' do
-    find_field('project_name').value.should == 'NewName'
+    expect(find_field('project_name').value).to eq 'NewName'
   end
 
   step 'change project path settings' do
@@ -22,32 +22,32 @@ class Spinach::Features::Project < Spinach::FeatureSteps
   end
 
   step 'I should see project with new path settings' do
-    project.path.should == 'new-path'
+    expect(project.path).to eq 'new-path'
   end
 
   step 'I change the project avatar' do
     attach_file(
       :project_avatar,
-      File.join(Rails.root, 'public', 'gitlab_logo.png')
+      File.join(Rails.root, 'spec', 'fixtures', 'banana_sample.gif')
     )
     click_button 'Save changes'
     @project.reload
   end
 
   step 'I should see new project avatar' do
-    @project.avatar.should be_instance_of AvatarUploader
+    expect(@project.avatar).to be_instance_of AvatarUploader
     url = @project.avatar.url
-    url.should == "/uploads/project/avatar/#{ @project.id }/gitlab_logo.png"
+    expect(url).to eq "/uploads/project/avatar/#{@project.id}/banana_sample.gif"
   end
 
   step 'I should see the "Remove avatar" button' do
-    page.should have_link('Remove avatar')
+    expect(page).to have_link('Remove avatar')
   end
 
   step 'I have an project avatar' do
     attach_file(
       :project_avatar,
-      File.join(Rails.root, 'public', 'gitlab_logo.png')
+      File.join(Rails.root, 'spec', 'fixtures', 'banana_sample.gif')
     )
     click_button 'Save changes'
     @project.reload
@@ -59,16 +59,16 @@ class Spinach::Features::Project < Spinach::FeatureSteps
   end
 
   step 'I should see the default project avatar' do
-    @project.avatar?.should be_false
+    expect(@project.avatar?).to eq false
   end
 
   step 'I should not see the "Remove avatar" button' do
-    page.should_not have_link('Remove avatar')
+    expect(page).not_to have_link('Remove avatar')
   end
 
   step 'I should see project "Shop" version' do
-    within '.project-side' do
-      page.should have_content 'Version: 6.7.0.pre'
+    page.within '.project-side' do
+      expect(page).to have_content '6.7.0.pre'
     end
   end
 
@@ -78,7 +78,7 @@ class Spinach::Features::Project < Spinach::FeatureSteps
   end
 
   step 'I should see project default branch changed' do
-    find(:css, 'select#project_default_branch').value.should == 'fix'
+    expect(find(:css, 'select#project_default_branch').value).to eq 'fix'
   end
 
   step 'I select project "Forum" README tab' do
@@ -86,12 +86,66 @@ class Spinach::Features::Project < Spinach::FeatureSteps
   end
 
   step 'I should see project "Forum" README' do
-    page.should have_link 'README.md'
-    page.should have_content 'Sample repo for testing gitlab features'
+    page.within('.readme-holder') do
+      expect(page).to have_content 'Sample repo for testing gitlab features'
+    end
   end
 
   step 'I should see project "Shop" README' do
-    page.should have_link 'README.md'
-    page.should have_content 'testme'
+    page.within('.readme-holder') do
+      expect(page).to have_content 'testme'
+    end
+  end
+
+  step 'I add project tags' do
+    fill_in 'Tags', with: 'tag1, tag2'
+  end
+
+  step 'I should see project tags' do
+    expect(find_field('Tags').value).to eq 'tag1, tag2'
+  end
+
+  step 'I should not see "New Issue" button' do
+    expect(page).not_to have_link 'New Issue'
+  end
+
+  step 'I should not see "New Merge Request" button' do
+    expect(page).not_to have_link 'New Merge Request'
+  end
+
+  step 'I should not see "Snippets" button' do
+    page.within '.content' do
+      expect(page).not_to have_link 'Snippets'
+    end
+  end
+
+  step 'project "Shop" belongs to group' do
+    group = create(:group)
+    @project.namespace = group
+    @project.save!
+  end
+
+  step 'I click notifications drop down button' do
+    first('.notifications-btn').click
+  end
+
+  step 'I choose Mention setting' do
+    click_link 'On mention'
+  end
+
+  step 'I should see Notification saved message' do
+    page.within '#notifications-button' do
+      expect(page).to have_content 'On mention'
+    end
+  end
+
+  step 'I create bare repo' do
+    click_link 'Create empty bare repository'
+  end
+
+  step 'I should see command line instructions' do
+    page.within ".empty_wrapper" do
+      expect(page).to have_content("Command line instructions")
+    end
   end
 end

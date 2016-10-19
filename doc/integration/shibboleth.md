@@ -1,8 +1,8 @@
 # Shibboleth OmniAuth Provider
 
-This documentation is for enabling shibboleth with gitlab-omnibus package.
+This documentation is for enabling shibboleth with omnibus-gitlab package.
 
-In order to enable Shibboleth support in gitlab we need to use Apache instead of Nginx (It may be possible to use Nginx, however I did not found way to easily configure Nginx that is bundled in gitlab-omnibus package). Apache uses mod_shib2 module for shibboleth authentication and can pass attributes as headers to omniauth-shibboleth provider.
+In order to enable Shibboleth support in gitlab we need to use Apache instead of Nginx (It may be possible to use Nginx, however this is difficult to configure using the bundled NIGNX provided in the omnibus-gitlab package). Apache uses mod_shib2 module for shibboleth authentication and can pass attributes as headers to omniauth-shibboleth provider.
 
 
 To enable the Shibboleth OmniAuth provider you must:
@@ -76,3 +76,50 @@ sudo gitlab-ctl reconfigure
 ```
 
 On the sign in page there should now be a "Sign in with: Shibboleth" icon below the regular sign in form. Click the icon to begin the authentication process. You will be redirected to IdP server (Depends on your Shibboleth module configuration). If everything goes well the user will be returned to GitLab and will be signed in.
+
+## Apache 2.4 / GitLab 8.6 update
+The order of the first 2 Location directives is important. If they are reversed,
+you will not get a shibboleth session!
+
+```
+  <Location />
+    Require all granted
+    ProxyPassReverse http://127.0.0.1:8181
+    ProxyPassReverse http://YOUR_SERVER_FQDN/
+  </Location>
+
+  <Location /users/auth/shibboleth/callback>
+    AuthType shibboleth
+    ShibRequestSetting requireSession 1
+    ShibUseHeaders On
+    Require shib-session
+  </Location>
+
+  Alias /shibboleth-sp /usr/share/shibboleth
+
+  <Location /shibboleth-sp>
+    Require all granted
+  </Location>
+
+  <Location /Shibboleth.sso>
+    SetHandler shib
+  </Location>
+
+  RewriteEngine on
+
+  #Don't escape encoded characters in api requests
+  RewriteCond %{REQUEST_URI} ^/api/v3/.*
+  RewriteCond %{REQUEST_URI} !/Shibboleth.sso
+  RewriteCond %{REQUEST_URI} !/shibboleth-sp
+  RewriteRule .* http://127.0.0.1:8181%{REQUEST_URI} [P,QSA,NE]
+
+  #Forward all requests to gitlab-workhorse except existing files
+  RewriteCond %{DOCUMENT_ROOT}/%{REQUEST_FILENAME} !-f [OR]
+  RewriteCond %{REQUEST_URI} ^/uploads/.*
+  RewriteCond %{REQUEST_URI} !/Shibboleth.sso
+  RewriteCond %{REQUEST_URI} !/shibboleth-sp
+  RewriteRule .* http://127.0.0.1:8181%{REQUEST_URI} [P,QSA]
+
+  RequestHeader set X_FORWARDED_PROTO 'https'
+  RequestHeader set X-Forwarded-Ssl on
+```

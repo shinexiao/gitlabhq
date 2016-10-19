@@ -1,13 +1,13 @@
 require 'spec_helper'
 
-describe SlackService::NoteMessage do
+describe SlackService::NoteMessage, models: true do
   let(:color) { '#345' }
 
   before do
     @args = {
         user: {
             name: 'Test User',
-            username: 'username',
+            username: 'test.user',
             avatar_url: 'http://fakeavatar'
         },
         project_name: 'project_name',
@@ -37,7 +37,7 @@ describe SlackService::NoteMessage do
 
     it 'returns a message regarding notes on commits' do
       message = SlackService::NoteMessage.new(@args)
-      expect(message.pretext).to eq("Test User commented on " \
+      expect(message.pretext).to eq("test.user commented on " \
       "<url|commit 5f163b2b> in <somewhere.com|project_name>: " \
       "*Added a commit message*")
       expected_attachments = [
@@ -60,12 +60,13 @@ describe SlackService::NoteMessage do
           title: "merge request title\ndetails\n"
       }
     end
+
     it 'returns a message regarding notes on a merge request' do
       message = SlackService::NoteMessage.new(@args)
-      expect(message.pretext).to eq("Test User commented on " \
-      "<url|merge request #30> in <somewhere.com|project_name>: " \
+      expect(message.pretext).to eq("test.user commented on " \
+      "<url|merge request !30> in <somewhere.com|project_name>: " \
       "*merge request title*")
-      expected_attachments =  [
+      expected_attachments = [
           {
               text: "comment on a merge request",
               color: color,
@@ -89,10 +90,10 @@ describe SlackService::NoteMessage do
     it 'returns a message regarding notes on an issue' do
       message = SlackService::NoteMessage.new(@args)
       expect(message.pretext).to eq(
-                                     "Test User commented on " \
-      "<url|issue #20> in <somewhere.com|project_name>: " \
-      "*issue title*")
-      expected_attachments =  [
+        "test.user commented on " \
+        "<url|issue #20> in <somewhere.com|project_name>: " \
+        "*issue title*")
+      expected_attachments = [
           {
               text: "comment on an issue",
               color: color,
@@ -114,10 +115,10 @@ describe SlackService::NoteMessage do
 
     it 'returns a message regarding notes on a project snippet' do
       message = SlackService::NoteMessage.new(@args)
-      expect(message.pretext).to eq("Test User commented on " \
+      expect(message.pretext).to eq("test.user commented on " \
       "<url|snippet #5> in <somewhere.com|project_name>: " \
       "*snippet title*")
-      expected_attachments =  [
+      expected_attachments = [
           {
               text: "comment on a snippet",
               color: color,

@@ -1,9 +1,5 @@
-= form_for [@project.namespace.becomes(Namespace), @project, @page], method: @page.persisted? ? :put : :post, html: { class: 'form-horizontal wiki-form gfm-form' } do |f|
-  -if @page.errors.any?
-    #error_explanation
-      .alert.alert-danger
-        - @page.errors.full_messages.each do |msg|
-          %p= msg
+= form_for [@project.namespace.becomes(Namespace), @project, @page], method: @page.persisted? ? :put : :post, html: { class: 'form-horizontal wiki-form common-note-form prepend-top-default js-quick-submit' } do |f|
+  = form_errors(@page)
 
   = f.hidden_field :title, value: @page.title
   .form-group
@@ -11,25 +7,25 @@
     .col-sm-10
       = f.select :format, options_for_select(ProjectWiki::MARKUPS, {selected: @page.format}), {}, class: "form-control"
 
-  .row
-    .col-sm-2
-    .col-sm-10
-      %p.cgray
-        To link to a (new) page you can just type
-        %code [Link Title](page-slug)
-        \.
-
-  .form-group.wiki-content
+  .form-group
     = f.label :content, class: 'control-label'
     .col-sm-10
-      = render layout: 'projects/md_preview', locals: { preview_class: "wiki" } do
-        = render 'projects/zen', f: f, attr: :content, classes: 'description form-control'
-        .col-sm-12.hint
-          .pull-left Wiki content is parsed with #{link_to "GitLab Flavored Markdown", help_page_path("markdown", "markdown"), target: '_blank'}
-          .pull-right Attach files by dragging &amp; dropping or #{link_to "selecting them", '#', class: 'markdown-selector' }.
+      = render layout: 'projects/md_preview', locals: { preview_class: "md-preview" } do
+        = render 'projects/zen', f: f, attr: :content, classes: 'note-textarea', placeholder: 'Write your content or drag files here...'
+        = render 'projects/notes/hints'
 
       .clearfix
       .error-alert
+
+      .help-block
+        = succeed '.' do
+          To link to a (new) page, simply type
+          %code [Link Title](page-slug)
+
+        = succeed '.' do
+          More examples are in the
+          = link_to 'documentation', help_page_path("user/markdown", anchor: "wiki-specific-markdown")
+
   .form-group
     = f.label :commit_message, class: 'control-label'
     .col-sm-10= f.text_field :message, class: 'form-control', rows: 18
@@ -41,6 +37,3 @@
     - else
       = f.submit 'Create page', class: "btn-create btn"
       = link_to "Cancel", namespace_project_wiki_path(@project.namespace, @project, :home), class: "btn btn-cancel"
-
-:javascript
-  window.project_uploads_path = "#{namespace_project_uploads_path @project.namespace, @project}";

@@ -1,18 +1,3 @@
-# == Schema Information
-#
-# Table name: members
-#
-#  id                 :integer          not null, primary key
-#  access_level       :integer          not null
-#  source_id          :integer          not null
-#  source_type        :string(255)      not null
-#  user_id            :integer          not null
-#  notification_level :integer          not null
-#  type               :string(255)
-#  created_at         :datetime
-#  updated_at         :datetime
-#
-
 class ProjectMember < Member
   SOURCE_TYPE = 'Project'
 
@@ -20,68 +5,55 @@ class ProjectMember < Member
 
   belongs_to :project, class_name: 'Project', foreign_key: 'source_id'
 
-
   # Make sure project member points only to project as it source
   default_value_for :source_type, SOURCE_TYPE
-  default_value_for :notification_level, Notification::N_GLOBAL
   validates_format_of :source_type, with: /\AProject\z/
+  validates :access_level, inclusion: { in: Gitlab::Access.values }
   default_scope { where(source_type: SOURCE_TYPE) }
 
-  after_create :post_create_hook
-  after_update :post_update_hook
-  after_destroy :post_destroy_hook
-
   scope :in_project, ->(project) { where(source_id: project.id) }
-  scope :in_projects, ->(projects) { where(source_id: projects.pluck(:id)) }
-  scope :with_user, ->(user) { where(user_id: user.id) }
+
+  before_destroy :delete_member_todos
 
   class << self
-
     # Add users to project teams with passed access option
     #
     # access can be an integer representing a access code
     # or symbol like :master representing role
     #
     # Ex.
-    #   add_users_into_projects(
+    #   add_users_to_projects(
     #     project_ids,
     #     user_ids,
     #     ProjectMember::MASTER
     #   )
     #
-    #   add_users_into_projects(
+    #   add_users_to_projects(
     #     project_ids,
     #     user_ids,
     #     :master
     #   )
     #
-    def add_users_into_projects(project_ids, user_ids, access)
-      access_level = if roles_hash.has_key?(access)
-                       roles_hash[access]
-                     elsif roles_hash.values.include?(access.to_i)
-                       access
-                     else
-                       raise "Non valid access"
-                     end
-
-      ProjectMember.transaction do
+    def add_users_to_projects(project_ids, users, access_level, current_user: nil, expires_at: nil)
+      self.transaction do
         project_ids.each do |project_id|
-          user_ids.each do |user_id|
-            member = ProjectMember.new(access_level: access_level, user_id: user_id)
-            member.source_id = project_id
-            member.save
-          end
+          project = Project.find(project_id)
+
+          add_users_to_source(
+            project,
+            users,
+            access_level,
+            current_user: current_user,
+            expires_at: expires_at
+          )
         end
       end
-
-      true
-    rescue
-      false
     end
 
     def truncate_teams(project_ids)
       ProjectMember.transaction do
         members = ProjectMember.where(source_id: project_ids)
+
         members.each do |member|
           member.destroy
         end
@@ -96,12 +68,14 @@ class ProjectMember < Member
       truncate_teams [project.id]
     end
 
-    def roles_hash
-      Gitlab::Access.sym_options
+    def access_level_roles
+      Gitlab::Access.options
     end
 
-    def access_roles
-      Gitlab::Access.options
+    private
+
+    def can_update_member?(current_user, member)
+      super || (member.owner? && member.new_record?)
     end
   end
 
@@ -109,8 +83,24 @@ class ProjectMember < Member
     access_level
   end
 
+  def project
+    source
+  end
+
   def owner?
     project.owner == user
+  end
+
+  private
+
+  def delete_member_todos
+    user.todos.where(project_id: source_id).destroy_all if user
+  end
+
+  def send_invite
+    notification_service.invite_project_member(self, @raw_invite_token)
+
+    super
   end
 
   def post_create_hook
@@ -118,32 +108,37 @@ class ProjectMember < Member
       event_service.join_project(self.project, self.user)
       notification_service.new_project_member(self)
     end
-    
-    system_hook_service.execute_hooks_for(self, :create)
+
+    super
   end
 
   def post_update_hook
-    notification_service.update_project_member(self) if self.access_level_changed?
+    if access_level_changed?
+      notification_service.update_project_member(self)
+    end
+
+    super
   end
 
   def post_destroy_hook
     event_service.leave_project(self.project, self.user)
-    system_hook_service.execute_hooks_for(self, :destroy)
+
+    super
+  end
+
+  def after_accept_invite
+    notification_service.accept_project_invite(self)
+
+    super
+  end
+
+  def after_decline_invite
+    notification_service.decline_project_invite(self)
+
+    super
   end
 
   def event_service
     EventCreateService.new
-  end
-
-  def notification_service
-    NotificationService.new
-  end
-
-  def system_hook_service
-    SystemHooksService.new
-  end
-
-  def project
-    source
   end
 end

@@ -1,29 +1,56 @@
-.append-bottom-10
-  .pull-right
-    .pull-left
-      - if current_user
-        .hidden-xs.pull-left
+- @no_container = true
+- @bulk_edit = can?(current_user, :admin_issue, @project)
+
+- page_title "Issues"
+- new_issue_email = @project.new_issue_address(current_user)
+= content_for :sub_nav do
+  = render "projects/issues/head"
+
+= content_for :meta_tags do
+  - if current_user
+    = auto_discovery_link_tag(:atom, namespace_project_issues_url(@project.namespace, @project, :atom, private_token: current_user.private_token), title: "#{@project.name} issues")
+
+%div{ class: (container_class) }
+  - if @project.issues.any?
+    .top-area
+      = render 'shared/issuable/nav', type: :issues
+      .nav-controls
+        - if current_user
           = link_to namespace_project_issues_path(@project.namespace, @project, :atom, { private_token: current_user.private_token }), class: 'btn append-right-10' do
-            %i.fa.fa-rss
+            = icon('rss')
+            %span.icon-label
+              Subscribe
+        = render 'shared/issuable/search_form', path: namespace_project_issues_path(@project.namespace, @project)
+        - if can? current_user, :create_issue, @project
+          = link_to new_namespace_project_issue_path(@project.namespace,
+                                                     @project,
+                                                     issue: { assignee_id: issues_finder.assignee.try(:id),
+                                                              milestone_id: issues_finder.milestones.first.try(:id) }),
+                                                     class: "btn btn-new",
+                                                     title: "New Issue",
+                                                     id: "new_issue_link" do
+            New Issue
+    = render 'shared/issuable/filter', type: :issues
 
-      = render 'shared/issuable_search_form', path: namespace_project_issues_path(@project.namespace, @project)
-
-    - if can? current_user, :write_issue, @project
-      = link_to new_namespace_project_issue_path(@project.namespace, @project, issue: { assignee_id: params[:assignee_id], milestone_id: params[:milestone_id]}), class: "btn btn-new pull-left", title: "New Issue", id: "new_issue_link" do
-        %i.fa.fa-plus
-        New Issue
-
-  = render 'shared/issuable_filter'
-
-  .clearfix
-    .issues_bulk_update.hide
-      = form_tag bulk_update_namespace_project_issues_path(@project.namespace, @project), method: :post  do
-        = select_tag('update[state_event]', options_for_select([['Open', 'reopen'], ['Closed', 'close']]), prompt: "Status", class: 'form-control')
-        = project_users_select_tag('update[assignee_id]', placeholder: 'Assignee')
-        = select_tag('update[milestone_id]', bulk_update_milestone_options, prompt: "Milestone")
-        = hidden_field_tag 'update[issues_ids]', []
-        = hidden_field_tag :state_event, params[:state_event]
-        = button_tag "Update issues", class: "btn update_selected_issues btn-save"
-
-.issues-holder
-  = render "issues"
+    .issues-holder
+      = render 'issues'
+      - if new_issue_email
+        = render 'issue_by_email', email: new_issue_email
+  - else
+    .blank-state.blank-state-welcome
+      %h2.blank-state-title.blank-state-welcome-title
+        Welcome to GitLab Issues
+      %p.blank-state-text
+        Code, test, and deploy together
+    .blank-state
+      .blank-state-icon
+        = custom_icon("issues", size: 50)
+      %h3.blank-state-title
+        You don't have any issues right now.
+      %p.blank-state-text
+        Issues are the best way to track your project progress
+      - if can? current_user, :create_issue, @project
+        = link_to new_namespace_project_issue_path(@project.namespace, @project), class: "btn btn-new", title: "New Issue", id: "new_issue_link" do
+          New Issue
+        - if new_issue_email
+          = render 'issue_by_email', email: new_issue_email

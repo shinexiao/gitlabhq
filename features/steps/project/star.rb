@@ -5,7 +5,7 @@ class Spinach::Features::ProjectStar < Spinach::FeatureSteps
   include SharedUser
 
   step "The project has no stars" do
-    page.should_not have_content '.star-buttons'
+    expect(page).not_to have_content '.toggle-star'
   end
 
   step "The project has 0 stars" do
@@ -22,12 +22,16 @@ class Spinach::Features::ProjectStar < Spinach::FeatureSteps
 
   # Requires @javascript
   step "I click on the star toggle button" do
-    find(".star .toggle", visible: true).click
+    find(".star-btn", visible: true).click
+  end
+
+  step 'I redirected to sign in page' do
+    expect(current_path).to eq new_user_session_path
   end
 
   protected
 
   def has_n_stars(n)
-    expect(page).to have_css(".star .count", text: /^#{n}$/, visible: true)
+    expect(page).to have_css(".star-count", text: n, visible: true)
   end
 end

@@ -1,3 +1,4 @@
+@project_commits
 Feature: Project Commits Branches
   Background:
     Given I sign in as a user
@@ -21,9 +22,11 @@ Feature: Project Commits Branches
   @javascript
   Scenario: I delete a branch
     Given I visit project branches page
+    And I filter for branch improve/awesome
     And I click branch 'improve/awesome' delete link
     Then I should not see branch 'improve/awesome'
 
+  @javascript
   Scenario: I create a branch with invalid name
     Given I visit project branches page
     And I click new branch link

@@ -1,0 +1,11 @@
+- page_title "Audit Log"
+= render 'profiles/head'
+
+.row.prepend-top-default
+  .col-lg-3.profile-settings-sidebar
+    %h3.prepend-top-0
+      = page_title
+    %p
+      This is a security log of important events involving your account.
+  .col-lg-9
+    = render 'event_table', events: @events

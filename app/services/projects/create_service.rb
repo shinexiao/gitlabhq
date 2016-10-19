@@ -5,13 +5,20 @@ module Projects
     end
 
     def execute
+      forked_from_project_id = params.delete(:forked_from_project_id)
+      import_data = params.delete(:import_data)
+      @skip_wiki = params.delete(:skip_wiki)
+
       @project = Project.new(params)
 
-      # Make sure that the user is allowed to use the specified visibility
-      # level
-      unless Gitlab::VisibilityLevel.allowed_for?(current_user,
-                                                  params[:visibility_level])
+      # Make sure that the user is allowed to use the specified visibility level
+      unless Gitlab::VisibilityLevel.allowed_for?(current_user, params[:visibility_level])
         deny_visibility_level(@project)
+        return @project
+      end
+
+      unless allowed_fork?(forked_from_project_id)
+        @project.errors.add(:forked_from_project_id, 'is forbidden')
         return @project
       end
 
@@ -45,28 +52,37 @@ module Projects
 
       @project.creator = current_user
 
-      Project.transaction do
-        @project.save
-
-        unless @project.import?
-          unless @project.create_repository
-            raise 'Failed to create repository'
-          end
-        end
+      if forked_from_project_id
+        @project.build_forked_project_link(forked_from_project_id: forked_from_project_id)
       end
+
+      save_project_and_import_data(import_data)
+
+      @project.import_start if @project.import?
 
       after_create_actions if @project.persisted?
 
+      if @project.errors.empty?
+        @project.add_import_job if @project.import?
+      else
+        fail(error: @project.errors.full_messages.join(', '))
+      end
       @project
-    rescue => ex
-      @project.errors.add(:base, "Can't save project. Please try again later")
-      @project
+    rescue => e
+      fail(error: e.message)
     end
 
     protected
 
     def deny_namespace
       @project.errors.add(:namespace, "is not valid")
+    end
+
+    def allowed_fork?(source_project_id)
+      return true if source_project_id.nil?
+
+      source_project = Project.find_by(id: source_project_id)
+      current_user.can?(:fork_project, source_project)
     end
 
     def allowed_namespace?(user, namespace_id)
@@ -77,20 +93,47 @@ module Projects
     def after_create_actions
       log_info("#{@project.owner.name} created a new project \"#{@project.name_with_namespace}\"")
 
-      @project.create_wiki if @project.wiki_enabled?
+      unless @project.gitlab_project_import?
+        @project.create_wiki unless skip_wiki?
+        @project.build_missing_services
+
+        @project.create_labels
+      end
 
       event_service.create_project(@project, current_user)
       system_hook_service.execute_hooks_for(@project, :create)
 
-      unless @project.group
-        @project.team << [current_user, :master]
+      unless @project.group || @project.gitlab_project_import?
+        @project.team << [current_user, :master, current_user]
+      end
+    end
+
+    def skip_wiki?
+      !@project.feature_available?(:wiki, current_user) || @skip_wiki
+    end
+
+    def save_project_and_import_data(import_data)
+      Project.transaction do
+        @project.create_or_update_import_data(data: import_data[:data], credentials: import_data[:credentials]) if import_data
+
+        if @project.save && !@project.import?
+          raise 'Failed to create repository' unless @project.create_repository
+        end
+      end
+    end
+
+    def fail(error:)
+      message = "Unable to save project. Error: #{error}"
+      message << "Project ID: #{@project.id}" if @project && @project.id
+
+      Rails.logger.error(message)
+
+      if @project && @project.import?
+        @project.errors.add(:base, message)
+        @project.mark_import_as_failed(message)
       end
 
-      @project.update_column(:last_activity_at, @project.created_at)
-
-      if @project.import?
-        @project.import_start
-      end
+      @project
     end
   end
 end

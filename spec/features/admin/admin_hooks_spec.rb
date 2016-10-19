@@ -6,19 +6,20 @@ describe "Admin::Hooks", feature: true do
     login_as :admin
 
     @system_hook = create(:system_hook)
-
   end
 
   describe "GET /admin/hooks" do
-    it "should be ok" do
+    it "is ok" do
       visit admin_root_path
-      within ".sidebar-wrapper" do
+
+      page.within ".layout-nav" do
         click_on "Hooks"
       end
+
       expect(current_path).to eq(admin_hooks_path)
     end
 
-    it "should have hooks list" do
+    it "has hooks list" do
       visit admin_hooks_path
       expect(page).to have_content(@system_hook.url)
     end
@@ -26,13 +27,13 @@ describe "Admin::Hooks", feature: true do
 
   describe "New Hook" do
     before do
-      @url = Faker::Internet.uri("http")
+      @url = FFaker::Internet.uri("http")
       visit admin_hooks_path
       fill_in "hook_url", with: @url
       expect { click_button "Add System Hook" }.to change(SystemHook, :count).by(1)
     end
 
-    it "should open new hook popup" do
+    it "opens new hook popup" do
       expect(current_path).to eq(admin_hooks_path)
       expect(page).to have_content(@url)
     end
@@ -47,5 +48,4 @@ describe "Admin::Hooks", feature: true do
 
     it { expect(current_path).to eq(admin_hooks_path) }
   end
-
 end

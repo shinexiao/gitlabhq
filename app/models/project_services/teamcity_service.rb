@@ -1,46 +1,29 @@
-# == Schema Information
-#
-# Table name: services
-#
-#  id                    :integer          not null, primary key
-#  type                  :string(255)
-#  title                 :string(255)
-#  project_id            :integer
-#  created_at            :datetime
-#  updated_at            :datetime
-#  active                :boolean          default(FALSE), not null
-#  properties            :text
-#  template              :boolean          default(FALSE)
-#  push_events           :boolean          default(TRUE)
-#  issues_events         :boolean          default(TRUE)
-#  merge_requests_events :boolean          default(TRUE)
-#  tag_push_events       :boolean          default(TRUE)
-#  note_events           :boolean          default(TRUE), not null
-#
-
 class TeamcityService < CiService
-  include HTTParty
-
   prop_accessor :teamcity_url, :build_type, :username, :password
 
-  validates :teamcity_url,
-    presence: true,
-    format: { with: URI::regexp }, if: :activated?
+  validates :teamcity_url, presence: true, url: true, if: :activated?
   validates :build_type, presence: true, if: :activated?
   validates :username,
     presence: true,
-    if: ->(service) { service.password? }, if: :activated?
+    if: ->(service) { service.activated? && service.password }
   validates :password,
     presence: true,
-    if: ->(service) { service.username? }, if: :activated?
+    if: ->(service) { service.activated? && service.username }
 
   attr_accessor :response
 
   after_save :compose_service_hook, if: :activated?
+  before_update :reset_password
 
   def compose_service_hook
     hook = service_hook || build_service_hook
     hook.save
+  end
+
+  def reset_password
+    if teamcity_url_changed? && !password_touched?
+      self.password = nil
+    end
   end
 
   def title
@@ -79,13 +62,7 @@ class TeamcityService < CiService
   end
 
   def build_info(sha)
-    url = URI.parse("#{teamcity_url}/httpAuth/app/rest/builds/"\
-                    "branch:unspecified:any,number:#{sha}")
-    auth = {
-      username: username,
-      password: password,
-    }
-    @response = HTTParty.get("#{url}", verify: false, basic_auth: auth)
+    @response = get_path("httpAuth/app/rest/builds/branch:unspecified:any,number:#{sha}")
   end
 
   def build_page(sha, ref)
@@ -94,12 +71,11 @@ class TeamcityService < CiService
     if @response.code != 200
       # If actual build link can't be determined,
       # send user to build summary page.
-      "#{teamcity_url}/viewLog.html?buildTypeId=#{build_type}"
+      build_url("viewLog.html?buildTypeId=#{build_type}")
     else
       # If actual build link is available, go to build result page.
       built_id = @response['build']['id']
-      "#{teamcity_url}/viewLog.html?buildId=#{built_id}"\
-      "&buildTypeId=#{build_type}"
+      build_url("viewLog.html?buildId=#{built_id}&buildTypeId=#{build_type}")
     end
   end
 
@@ -134,12 +110,27 @@ class TeamcityService < CiService
 
     branch = Gitlab::Git.ref_name(data[:ref])
 
-    self.class.post("#{teamcity_url}/httpAuth/app/rest/buildQueue",
-                    body: "<build branchName=\"#{branch}\">"\
-                          "<buildType id=\"#{build_type}\"/>"\
-                          '</build>',
-                    headers: { 'Content-type' => 'application/xml' },
-                    basic_auth: auth
-        )
+    HTTParty.post(
+      build_url('httpAuth/app/rest/buildQueue'),
+      body: "<build branchName=\"#{branch}\">"\
+            "<buildType id=\"#{build_type}\"/>"\
+            '</build>',
+      headers: { 'Content-type' => 'application/xml' },
+      basic_auth: auth
+    )
+  end
+
+  private
+
+  def build_url(path)
+    URI.join("#{teamcity_url}/", path).to_s
+  end
+
+  def get_path(path)
+    HTTParty.get(build_url(path), verify: false,
+                                  basic_auth: {
+                                    username: username,
+                                    password: password
+                                  })
   end
 end

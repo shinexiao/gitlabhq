@@ -1,78 +1,66 @@
 /**
- * Events labels
- *
- */
-.event_label {
-  &.pushed {
-    padding: 0 2px;
-  }
-
-  &.opened {
-    padding: 0 2px;
-  }
-
-  &.closed {
-    padding: 0 2px;
-  }
-
-  &.merged {
-    padding: 0 2px;
-  }
-
-  &.left,
-  &.joined {
-    padding: 0 2px;
-    float: none;
-  }
-}
-
-/**
  * Dashboard events feed
  *
  */
 .event-item {
-  &:first-child {
-    padding-top: 0;
-  }
+  font-size: $gl-font-size;
+  padding: $gl-padding-top 0 $gl-padding-top ($gl-avatar-size + $gl-padding-top);
+  border-bottom: 1px solid $table-border-color;
+  color: $list-text-color;
 
   &.event-inline {
     .avatar {
       position: relative;
       top: -2px;
     }
-  }
 
-  padding: 12px 0px;
-  border-bottom: 1px solid #eee;
-  .event-title {
-    @include str-truncated(72%);
-    font-weight: 500;
-    font-size: 14px;
-    .author_name {
-      color: #333;
+    .event-title,
+    .event-item-timestamp {
+      line-height: 40px;
     }
   }
+
+  a {
+    color: $gl-dark-link-color;
+  }
+
+  .avatar {
+    margin-left: -($gl-avatar-size + $gl-padding-top);
+  }
+
+  .event-title {
+    @include str-truncated(calc(100% - 174px));
+    font-weight: 600;
+    color: $list-text-color;
+  }
+
   .event-body {
-    font-size: 13px;
-    margin-left: 35px;
-    margin-right: 80px;
-    color: #777;
+    margin-right: 174px;
 
     .event-note {
-      margin-top: 5px;
       word-wrap: break-word;
 
       .md {
-        font-size: 13px;
+        color: $gl-grayish-blue;
+        font-size: $gl-font-size;
+
+        .label {
+          color: $gl-text-color;
+          font-size: inherit;
+        }
 
         iframe.twitter-share-button {
           vertical-align: bottom;
         }
       }
 
+      code {
+        white-space: pre-wrap;
+      }
+
       pre {
         border: none;
-        background: #f9f9f9;
+        background: $gray-light;
         border-radius: 0;
         color: #777;
         margin: 0 20px;
@@ -81,7 +69,7 @@
 
       .note-image-attach {
         margin-top: 4px;
-        margin-left: 0px;
+        margin-left: 0;
         max-width: 200px;
         float: none;
       }
@@ -90,47 +78,49 @@
         margin-bottom: 0;
       }
     }
+
     .event-note-icon {
       color: #777;
       float: left;
-      font-size: 16px;
+      font-size: $gl-font-size;
       line-height: 16px;
       margin-right: 5px;
     }
   }
+
   .event_icon {
     position: relative;
     float: right;
-    border: 1px solid #EEE;
+    border: 1px solid #eee;
     padding: 5px;
-    @include border-radius(5px);
-    background: #F9F9F9;
+    border-radius: 5px;
+    background: $gray-light;
     margin-left: 10px;
     top: -6px;
+
     img {
       width: 20px;
     }
   }
 
-  &:last-child { border:none }
+  &:last-child { border: none; }
 
   .event_commits {
-    margin-top: 5px;
-
     li {
       &.commit {
         background: transparent;
         padding: 3px;
         padding-left: 0;
         border: none;
+
         .commit-row-title {
-          font-size: 12px;
+          font-size: $gl-font-size;
         }
       }
+
       &.commits-stat {
         display: block;
-        padding: 3px;
-        padding-left: 0;
+        padding: 0 3px 0 0;
 
         &:hover {
           background: none;
@@ -141,7 +131,6 @@
 
   .event-item-timestamp {
     float: right;
-    color: #999;
     line-height: 22px;
   }
 }
@@ -152,11 +141,13 @@
  */
 .event-last-push {
   overflow: auto;
+  width: 100%;
+  
   .event-last-push-text {
     @include str-truncated(100%);
-    padding: 5px 0;
+    padding: 4px 0;
     font-size: 13px;
-    float:left;
+    float: left;
     margin-right: -150px;
     padding-right: 150px;
     line-height: 20px;
@@ -165,18 +156,21 @@
 
 @media (max-width: $screen-xs-max) {
   .event-item {
+    padding-left: $gl-padding;
+
     .event-title {
       white-space: normal;
       overflow: visible;
       max-width: 100%;
     }
+
     .avatar {
       display: none;
     }
 
     .event-body {
       margin: 0;
-      border-left: 2px solid #DDD;
+      border-left: 2px solid #ddd;
       padding-left: 10px;
     }
 
@@ -186,11 +180,10 @@
   }
 }
 
-.event_filter {
-  li a {
-    font-size: 13px;
-    padding: 5px 10px;
-    background: $background-color;
-    margin-left: 4px;
+// hide event scope (namespace + project) where it is not necessary
+.project-activity {
+  .event-scope {
+    display: none;
   }
 }
+

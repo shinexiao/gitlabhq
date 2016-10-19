@@ -8,6 +8,12 @@ Feature: Project Wiki
     Given I create the Wiki Home page
     Then I should see the newly created wiki page
 
+  Scenario: Add new page with errors
+    Given I create the Wiki Home page with no content
+    Then I should see a "Content can't be blank" error message
+    When I create the Wiki Home page
+    Then I should see the newly created wiki page
+
   Scenario: Pressing Cancel while editing a brand new Wiki
     Given I click on the Cancel button
     Then I should be redirected back to the Edit Home Wiki page
@@ -62,3 +68,39 @@ Feature: Project Wiki
     And I browse to wiki page with images
     And I click on image link
     Then I should see the new wiki page form
+
+  @javascript
+  Scenario: New Wiki page that has a path
+    Given I create a New page with paths
+    And I click on the "Pages" button
+    Then I should see non-escaped link in the pages list
+
+  @javascript
+  Scenario: Edit Wiki page that has a path
+    Given I create a New page with paths
+    And I click on the "Pages" button
+    And I edit the Wiki page with a path
+    Then I should see a non-escaped path
+    And I should see the Editing page
+    And I change the content
+    Then I should see the updated content
+
+  @javascript
+  Scenario: View the page history of a Wiki page that has a path
+    Given I create a New page with paths
+    And I click on the "Pages" button
+    And I view the page history of a Wiki page that has a path
+    Then I should see a non-escaped path
+    And I should see the page history
+
+  @javascript
+  Scenario: View an old page version of a Wiki page
+    Given I create a New page with paths
+    And I click on the "Pages" button
+    And I edit the Wiki page with a path
+    Then I should see a non-escaped path
+    And I should see the Editing page
+    And I change the content
+    Then I click on Page History
+    And I should see the page history
+    And I should see a link with a version ID

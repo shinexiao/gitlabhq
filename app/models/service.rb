@@ -1,22 +1,3 @@
-# == Schema Information
-#
-# Table name: services
-#
-#  id                    :integer          not null, primary key
-#  type                  :string(255)
-#  title                 :string(255)
-#  project_id            :integer
-#  created_at            :datetime
-#  updated_at            :datetime
-#  active                :boolean          default(FALSE), not null
-#  properties            :text
-#  template              :boolean          default(FALSE)
-#  push_events           :boolean          default(TRUE)
-#  issues_events         :boolean          default(TRUE)
-#  merge_requests_events :boolean          default(TRUE)
-#  tag_push_events       :boolean          default(TRUE)
-#
-
 # To add new service you should build a class inherited from Service
 # and implement a set of methods
 class Service < ActiveRecord::Base
@@ -26,24 +7,43 @@ class Service < ActiveRecord::Base
   default_value_for :active, false
   default_value_for :push_events, true
   default_value_for :issues_events, true
+  default_value_for :confidential_issues_events, true
   default_value_for :merge_requests_events, true
   default_value_for :tag_push_events, true
   default_value_for :note_events, true
+  default_value_for :build_events, true
+  default_value_for :pipeline_events, true
+  default_value_for :wiki_page_events, true
 
   after_initialize :initialize_properties
 
-  belongs_to :project
+  after_commit :reset_updated_properties
+  after_commit :cache_project_has_external_issue_tracker
+  after_commit :cache_project_has_external_wiki
+
+  belongs_to :project, inverse_of: :services
   has_one :service_hook
 
   validates :project_id, presence: true, unless: Proc.new { |service| service.template? }
 
-  scope :visible, -> { where.not(type: 'GitlabIssueTrackerService') }
+  scope :visible, -> { where.not(type: ['GitlabIssueTrackerService', 'GitlabCiService']) }
+  scope :issue_trackers, -> { where(category: 'issue_tracker') }
+  scope :external_wikis, -> { where(type: 'ExternalWikiService').active }
+  scope :active, -> { where(active: true) }
+  scope :without_defaults, -> { where(default: false) }
 
   scope :push_hooks, -> { where(push_events: true, active: true) }
   scope :tag_push_hooks, -> { where(tag_push_events: true, active: true) }
   scope :issue_hooks, -> { where(issues_events: true, active: true) }
+  scope :confidential_issue_hooks, -> { where(confidential_issues_events: true, active: true) }
   scope :merge_request_hooks, -> { where(merge_requests_events: true, active: true) }
   scope :note_hooks, -> { where(note_events: true, active: true) }
+  scope :build_hooks, -> { where(build_events: true, active: true) }
+  scope :pipeline_hooks, -> { where(pipeline_events: true, active: true) }
+  scope :wiki_page_hooks, -> { where(wiki_page_events: true, active: true) }
+  scope :external_issue_trackers, -> { issue_trackers.active.without_defaults }
+
+  default_value_for :category, 'common'
 
   def activated?
     active
@@ -54,7 +54,7 @@ class Service < ActiveRecord::Base
   end
 
   def category
-    :common
+    read_attribute(:category).to_sym
   end
 
   def initialize_properties
@@ -82,20 +82,52 @@ class Service < ActiveRecord::Base
     []
   end
 
-  def supported_events
-    %w(push tag_push issue merge_request)
+  def test_data(project, user)
+    Gitlab::DataBuilder::Push.build_sample(project, user)
   end
 
-  def execute
+  def event_channel_names
+    []
+  end
+
+  def event_names
+    supported_events.map { |event| "#{event}_events" }
+  end
+
+  def event_field(event)
+    nil
+  end
+
+  def global_fields
+    fields
+  end
+
+  def supported_events
+    %w(push tag_push issue confidential_issue merge_request wiki_page)
+  end
+
+  def execute(data)
     # implement inside child
+  end
+
+  def test(data)
+    # default implementation
+    result = execute(data)
+    { success: result.present?, result: result }
   end
 
   def can_test?
     !project.empty_repo?
   end
 
+  # reason why service cannot be tested
+  def disabled_title
+    "Please setup a project repository."
+  end
+
   # Provide convenient accessor methods
   # for each serialized property.
+  # Also keep track of updated properties in a similar way as ActiveModel::Dirty
   def self.prop_accessor(*args)
     args.each do |arg|
       class_eval %{
@@ -104,10 +136,53 @@ class Service < ActiveRecord::Base
         end
 
         def #{arg}=(value)
+          self.properties ||= {}
+          updated_properties['#{arg}'] = #{arg} unless #{arg}_changed?
           self.properties['#{arg}'] = value
+        end
+
+        def #{arg}_changed?
+          #{arg}_touched? && #{arg} != #{arg}_was
+        end
+
+        def #{arg}_touched?
+          updated_properties.include?('#{arg}')
+        end
+
+        def #{arg}_was
+          updated_properties['#{arg}']
         end
       }
     end
+  end
+
+  # Provide convenient boolean accessor methods
+  # for each serialized property.
+  # Also keep track of updated properties in a similar way as ActiveModel::Dirty
+  def self.boolean_accessor(*args)
+    self.prop_accessor(*args)
+
+    args.each do |arg|
+      class_eval %{
+        def #{arg}?
+          ActiveRecord::ConnectionAdapters::Column::TRUE_VALUES.include?(#{arg})
+        end
+      }
+    end
+  end
+
+  # Returns a hash of the properties that have been assigned a new value since last save,
+  # indicating their original values (attr => original value).
+  # ActiveRecord does not provide a mechanism to track changes in serialized keys,
+  # so we need a specific implementation for service properties.
+  # This allows to track changes to properties set with the accessor methods,
+  # but not direct manipulation of properties hash.
+  def updated_properties
+    @updated_properties ||= ActiveSupport::HashWithIndifferentAccess.new
+  end
+
+  def reset_updated_properties
+    @updated_properties = nil
   end
 
   def async_execute(data)
@@ -122,25 +197,27 @@ class Service < ActiveRecord::Base
 
   def self.available_services_names
     %w(
-      gitlab_ci
-      campfire
-      hipchat
-      pivotaltracker
-      flowdock
-      assembla
       asana
-      emails_on_push
-      gemnasium
-      slack
-      pushover
-      buildbox
+      assembla
       bamboo
-      teamcity
-      jira
-      redmine
+      buildkite
+      builds_email
+      bugzilla
+      campfire
       custom_issue_tracker
-      irker
+      drone_ci
+      emails_on_push
       external_wiki
+      flowdock
+      gemnasium
+      hipchat
+      irker
+      jira
+      pivotaltracker
+      pushover
+      redmine
+      slack
+      teamcity
     )
   end
 
@@ -149,5 +226,19 @@ class Service < ActiveRecord::Base
     service.template = false
     service.project_id = project_id
     service if service.save
+  end
+
+  private
+
+  def cache_project_has_external_issue_tracker
+    if project && !project.destroyed?
+      project.cache_has_external_issue_tracker
+    end
+  end
+
+  def cache_project_has_external_wiki
+    if project && !project.destroyed?
+      project.cache_has_external_wiki
+    end
   end
 end

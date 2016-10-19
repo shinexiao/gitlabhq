@@ -1,0 +1,21 @@
+.modal-body {
+  position: relative;
+  padding: 15px;
+
+  .form-actions {
+    margin: -$gl-padding+1;
+    margin-top: 15px;
+  }
+
+  .text-danger {
+    font-weight: bold;
+  }
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+.modal .modal-dialog {
+  width: 860px;
+}
